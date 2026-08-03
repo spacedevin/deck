@@ -38,6 +38,48 @@ jobs:
       - name: Build
         run: npm run build
 
+  # The Rust crate is emitted from the SAME src/index.tish as dist/deck.js, which is what stops the
+  # JS host and tish-gba's build-time bake from drifting. Nothing verified that: a change that broke
+  # the rust-lib emit, or that made the two targets parse differently, would have gone unnoticed
+  # until release — or until a consumer hit it. `cargo test` here runs the same conformance corpus
+  # the JS build is checked against, so both targets are held to one contract on every PR.
+  rust_crate:
+    name: Rust crate (deckfile)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: crate
+
+      - name: Emit the crate
+        run: |
+          export PATH="$PWD/node_modules/.bin:$PATH"
+          npm run build:rust
+
+      - name: Conformance corpus (from Rust)
+        working-directory: crate
+        run: cargo test
+
+      # A crate that cannot be packaged cannot be released; catch that on the PR, not at publish.
+      - name: Packaging check
+        working-directory: crate
+        run: cargo publish --dry-run --allow-dirty
+
   release_check:
     name: Release check (semantic-release dry-run)
     runs-on: ubuntu-latest
@@ -80,7 +122,7 @@ jobs:
 
   release:
     name: Release (prerelease branch + GitHub API)
-    needs: [test, release_check]
+    needs: [test, rust_crate, release_check]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
     permissions:
