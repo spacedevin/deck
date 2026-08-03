@@ -5,14 +5,20 @@
 # rather than committed: one source, and the published crate cannot drift from the published npm
 # package because both come out of the same tag.
 #
-# AUTH: crates.io Trusted Publishing (OIDC, no long-lived token), matching npm-release.yml.
-# One-time setup on crates.io for `deckfile`: Settings > Trusted Publishing > GitHub Actions:
-#   Repository owner:  spacedevin
-#   Repository name:   deck
-#   Workflow filename: crates-release.yml
-#   Environment:       (leave blank)
-# Trusted Publishing must be configured before the FIRST publish; if the crate name is not yet
-# claimed, do the initial `cargo publish` locally, then wire OIDC and let CI own it from then on.
+# AUTH: crates.io Trusted Publishing (OIDC, no long-lived token), matching npm-release.yml — with a
+# CARGO_REGISTRY_TOKEN fallback used only to bootstrap.
+#
+# Trusted Publishing config is attached to a crate you already own, so it cannot publish a crate that
+# does not exist yet. Bootstrapping, once:
+#   1. Add CARGO_REGISTRY_TOKEN as a repo secret and run this workflow — that claims `deckfile`.
+#   2. Configure Trusted Publishing on crates.io:
+#        deckfile > Settings > Trusted Publishing > GitHub Actions
+#          Repository owner:  spacedevin
+#          Repository name:   deck
+#          Workflow filename: crates-release.yml
+#          Environment:       (leave blank)
+#   3. DELETE the secret. The step below falls back to OIDC automatically, so the long-lived token
+#      exists only for as long as the bootstrap takes.
 
 name: Crates.io release
 
@@ -89,8 +95,33 @@ jobs:
         working-directory: crate
         run: cargo test
 
-      - name: Authenticate to crates.io (Trusted Publishing)
+      # Two auth paths, because Trusted Publishing alone cannot bootstrap a crate that does not exist
+      # yet: a config is attached to a crate you already own, so there is nothing to attach to before
+      # the first publish. That is exactly how this failed on v1.2.1 —
+      #   Status: 400. No Trusted Publishing config found for repository `spacedevin/deck`.
+      #
+      # So: if a CARGO_REGISTRY_TOKEN secret is set, use it. Otherwise use Trusted Publishing.
+      # To claim the name, add the secret and release once; then configure Trusted Publishing on
+      # crates.io (deckfile > Settings > Trusted Publishing > owner `spacedevin`, repo `deck`,
+      # workflow `crates-release.yml`) and DELETE the secret — this falls back to OIDC on its own,
+      # so the long-lived token exists only for as long as it takes to bootstrap.
+      # `secrets` is not available in a step-level `if`, only in `env` — so the presence of the token
+      # has to be turned into a step output before it can gate anything.
+      - name: Detect a crates.io token
+        id: cred
         if: steps.check.outputs.already == 'false'
+        env:
+          TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: |
+          if [ -n "${TOKEN:-}" ]; then
+            echo "have_token=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::Publishing with CARGO_REGISTRY_TOKEN. Once deckfile exists, configure Trusted Publishing and delete this secret."
+          else
+            echo "have_token=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Authenticate to crates.io (Trusted Publishing)
+        if: ${{ steps.check.outputs.already == 'false' && steps.cred.outputs.have_token == 'false' }}
         uses: rust-lang/crates-io-auth-action@v1
         id: auth
 
@@ -99,5 +130,13 @@ jobs:
         if: steps.check.outputs.already == 'false'
         working-directory: crate
         env:
-          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
-        run: cargo publish --allow-dirty
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN || steps.auth.outputs.token }}
+        run: |
+          if [ -z "${CARGO_REGISTRY_TOKEN:-}" ]; then
+            echo "No crates.io credential."
+            echo "Either set the CARGO_REGISTRY_TOKEN repo secret (needed for the FIRST publish of a"
+            echo "crate, which Trusted Publishing cannot bootstrap), or configure Trusted Publishing"
+            echo "for \`deckfile\` at https://crates.io/crates/deckfile/settings."
+            exit 1
+          fi
+          cargo publish --allow-dirty
