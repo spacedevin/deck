@@ -30,10 +30,12 @@ npm run examples
 | Area | API |
 |------|-----|
 | Lex / parse | `tokenize`, `isNumberToken`, `parseProgram` |
+| Track / clip body | `parseBodyLine`, `parseTrackBody`, `parseBoolish` |
 | Format | `formatTplBeat`, `formatTplFloat` |
 | Scale | `parseScaleRoot`, `scaleRootNames`, `scaleModeNames`, `scaleIntervals` |
 | Bar / Euclid | `parseBarSelector`, `barSelectorMatches`, `euclideanPattern` |
 | Registries | `registerGeneratorIdAliases`, `registerParamKeyAliases`, `paramKeyToCamel`, … |
+| Host extensions | `registerBodyLineDialect`, `registerTopLevelStatement`, `registerGenBlockDialect` |
 | Macros | `registerBuiltinMacros`, `lookupMacro`, `expandMacroBody` |
 | gen_block | `parseGenBlock`, `registerGenBlockDialect` |
 | Highlight | `classifyLine`, `isKeyword`, `registerHighlightKeywords` |

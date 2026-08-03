@@ -1,0 +1,364 @@
+// Track / clip body lines — the `mix` / `steps` / `note` / `gen` layer.
+//
+// `parseProgram` deliberately leaves body lines as opaque token rows, because the host decides what
+// they MEAN. What it should not leave to the host is what they SAY: every host re-derived the same
+// line shapes independently, which is exactly where the two implementations drifted (multi-word
+// names, `* inf`, `bar` selectors, step-lane widths).
+//
+// So this is parse-only, and deliberately opinion-free:
+//   * absent optional -> `null`; the host applies its own default
+//   * NO clamping and NO range validation — those are host policy, and the hosts genuinely differ
+//     (Deckard clamps `p`/`r`/`n`; tish-gba errors on an out-of-range `layer`). Range checks that
+//     need track context (`note` start vs `* N` bars) can't live here anyway.
+//   * unknown heads come back as `kind: "unknown"` rather than an error, so a host dialect can claim
+//     them via `registerBodyLineDialect`.
+import { isNumberToken } from './Parser.tish'
+import { parseBarSelector } from './BarSelector.tish'
+import { euclideanPattern } from './Euclidean.tish'
+import { paramKeyToCamel } from './RegistryMap.tish'
+
+let bodyDialects = {}
+
+/// Register a parser for one or more body heads. `parseFn(head, tokens) -> row`.
+/// Host extensions register here instead of forking the grammar — tish-gba's `layer` / `intensity`,
+/// Deckard's legacy `noise` / `fm` / `osc` one-liners.
+export fn registerBodyLineDialect(heads, parseFn) {
+  if (!parseFn) {
+    return
+  }
+  let list = heads
+  if (typeof heads === "string") {
+    list = [heads]
+  }
+  if (!(list && typeof list.length === "number")) {
+    return
+  }
+  let i = 0
+  while (i < list.length) {
+    bodyDialects[String(list[i])] = parseFn
+    i = i + 1
+  }
+}
+
+export fn clearBodyLineDialects() {
+  bodyDialects = {}
+}
+
+/// `1` / `true` / `on` / `yes` are true; anything else is false.
+export fn parseBoolish(s) {
+  return s === "1" || s === "true" || s === "on" || s === "yes"
+}
+
+fn numOrNull(tok) {
+  if (tok === null || !isNumberToken(tok)) {
+    return null
+  }
+  return Number(tok)
+}
+
+fn intOrNull(tok) {
+  let n = numOrNull(tok)
+  if (n === null) {
+    return null
+  }
+  return Math.floor(n)
+}
+
+/// Collect trailing `key value` pairs into an object, numbers parsed, everything else left a string.
+/// Keys go through `paramKeyToCamel`, so host-registered aliases apply.
+fn kvPairs(toks, start) {
+  let out = {}
+  let i = start
+  while (i + 1 < toks.length) {
+    let k = paramKeyToCamel(toks[i])
+    let raw = toks[i + 1]
+    let n = numOrNull(raw)
+    out[k] = n === null ? raw : n
+    i = i + 2
+  }
+  return out
+}
+
+fn isStepOn(tok) {
+  return tok === "x" || tok === "X" || tok === "1"
+}
+
+fn isStepOff(tok) {
+  return tok === "." || tok === "0"
+}
+
+/// `steps x . . . …` (any multiple of 16 for a multi-bar pattern) or `steps euclid <hits> <len>`.
+/// `|` is accepted as a bar separator and ignored — a readability aid already used in the wild.
+fn parseSteps(toks) {
+  if (toks.length >= 4 && toks[1] === "euclid") {
+    let hits = intOrNull(toks[2])
+    let len = intOrNull(toks[3])
+    if (hits === null || len === null) {
+      return { kind: "error", msg: "steps euclid: expected `steps euclid <hits> <len>`" }
+    }
+    return { kind: "steps", mode: "euclid", hits: hits, len: len, on: euclideanPattern(hits, len) }
+  }
+  let on = []
+  let i = 1
+  while (i < toks.length) {
+    let t = toks[i]
+    if (t !== "|") {
+      if (isStepOn(t)) {
+        on.push(true)
+      } else if (isStepOff(t)) {
+        on.push(false)
+      }
+    }
+    i = i + 1
+  }
+  return { kind: "steps", mode: "literal", on: on }
+}
+
+fn laneName(head) {
+  if (head === "step_vel") {
+    return "vel"
+  }
+  if (head === "step_prob") {
+    return "prob"
+  }
+  if (head === "step_ratchet") {
+    return "ratchet"
+  }
+  if (head === "step_nudge") {
+    return "nudge"
+  }
+  if (head === "step_lyric") {
+    return "lyric"
+  }
+  return null
+}
+
+/// `note <midi> <startBeat> <durBeats> v <vel> [p <n>] [r <n>] [n <n>] [bar <sel>] [l <lyric>]`.
+/// Locks are `null` when absent so the host can tell "not written" from "written at the default".
+fn parseNote(toks) {
+  if (!(toks.length >= 6 && toks[4] === "v")) {
+    return { kind: "error", msg: "note: expected `note <midi> <startBeat> <durBeats> v <vel>`" }
+  }
+  let row = {
+    kind: "note",
+    midi: intOrNull(toks[1]),
+    startBeat: numOrNull(toks[2]),
+    durBeats: numOrNull(toks[3]),
+    vel: intOrNull(toks[5]),
+    prob: null,
+    ratchet: null,
+    nudge: null,
+    bar: null,
+    lyric: null
+  }
+  if (row.midi === null || row.startBeat === null || row.durBeats === null) {
+    return { kind: "error", msg: "note: midi, startBeat and durBeats must be numbers" }
+  }
+  // Trailing keyword PAIRS, any order.
+  let i = 6
+  while (i + 1 < toks.length) {
+    let k = toks[i]
+    let v = toks[i + 1]
+    if (k === "p") {
+      row.prob = numOrNull(v)
+    } else if (k === "r") {
+      row.ratchet = intOrNull(v)
+    } else if (k === "n") {
+      row.nudge = numOrNull(v)
+    } else if (k === "bar") {
+      row.bar = parseBarSelector(v)
+    } else if (k === "l") {
+      row.lyric = v
+    }
+    i = i + 2
+  }
+  return row
+}
+
+fn parseMix(toks) {
+  let row = {
+    kind: "mix",
+    gain: null,
+    pan: null,
+    mute: null,
+    solo: null,
+    eqLo: null,
+    eqMid: null,
+    eqHi: null
+  }
+  let i = 1
+  while (i + 1 < toks.length) {
+    let k = toks[i]
+    let v = toks[i + 1]
+    if (k === "gain") {
+      row.gain = numOrNull(v)
+    } else if (k === "pan") {
+      row.pan = numOrNull(v)
+    } else if (k === "mute") {
+      row.mute = parseBoolish(v)
+    } else if (k === "solo") {
+      row.solo = parseBoolish(v)
+    } else if (k === "eq_lo") {
+      row.eqLo = numOrNull(v)
+    } else if (k === "eq_mid") {
+      row.eqMid = numOrNull(v)
+    } else if (k === "eq_hi") {
+      row.eqHi = numOrNull(v)
+    }
+    i = i + 2
+  }
+  return row
+}
+
+/// `fx` accepts `reverb` for `reverb_send` and `type` for `filter_type`. Those are LANGUAGE aliases;
+/// mapping the result onto engine parameter names is the host's job.
+fn parseFx(toks) {
+  let norm = []
+  norm.push(toks[0])
+  let i = 1
+  while (i < toks.length) {
+    let k = toks[i]
+    if (k === "reverb") {
+      k = "reverb_send"
+    } else if (k === "type") {
+      k = "filter_type"
+    }
+    norm.push(k)
+    if (i + 1 < toks.length) {
+      norm.push(toks[i + 1])
+    }
+    i = i + 2
+  }
+  return { kind: "fx", params: kvPairs(norm, 1) }
+}
+
+/// `deck <A|B|C|D|live> [slot <n>]` — booth routing, not the `deck 1` version header.
+fn parseDeckRoute(toks) {
+  let lane = null
+  if (toks.length >= 2) {
+    let d = toks[1]
+    if (d === "A" || d === "B" || d === "C" || d === "D" || d === "live") {
+      lane = d
+    }
+  }
+  let slot = null
+  let i = 2
+  while (i + 1 < toks.length) {
+    if (toks[i] === "slot") {
+      slot = intOrNull(toks[i + 1])
+    }
+    i = i + 1
+  }
+  return { kind: "deckRoute", lane: lane, slot: slot }
+}
+
+/// Parse one body line's tokens into a typed row. Never throws; an ill-formed known head returns
+/// `{ kind: "error", msg }` and an unrecognised head returns `{ kind: "unknown", head, tokens }`.
+export fn parseBodyLine(toks) {
+  if (!(toks && typeof toks.length === "number") || toks.length === 0) {
+    return { kind: "unknown", head: "", tokens: [] }
+  }
+  let head = toks[0]
+
+  if (head === "mix") {
+    return parseMix(toks)
+  }
+  if (head === "steps") {
+    return parseSteps(toks)
+  }
+  if (head === "note") {
+    return parseNote(toks)
+  }
+  if (head === "notes_clear") {
+    return { kind: "notesClear" }
+  }
+  if (head === "fx") {
+    return parseFx(toks)
+  }
+  if (head === "deck") {
+    return parseDeckRoute(toks)
+  }
+  if (head === "voice") {
+    return { kind: "voice", params: kvPairs(toks, 1) }
+  }
+  if (head === "gen") {
+    return { kind: "gen", params: kvPairs(toks, 1) }
+  }
+  if (head === "adsr") {
+    let p = kvPairs(toks, 1)
+    return { kind: "adsr", a: p.a, d: p.d, s: p.s, r: p.r }
+  }
+  if (head === "transpose") {
+    let semis = intOrNull(toks[1])
+    if (semis === null) {
+      return { kind: "error", msg: "transpose: expected `transpose <semitones>`" }
+    }
+    return { kind: "transpose", semitones: semis }
+  }
+  // `loops <N|inf|infinite>` — a play cap, distinct from the track header's `* N` pattern LENGTH.
+  // `inf` clears the cap, which is `cap: null`.
+  if (head === "loops") {
+    if (toks.length >= 2 && (toks[1] === "inf" || toks[1] === "infinite")) {
+      return { kind: "loops", cap: null }
+    }
+    let cap = intOrNull(toks[1])
+    if (cap === null) {
+      return { kind: "error", msg: "loops: expected `loops <N|inf|infinite>`" }
+    }
+    return { kind: "loops", cap: cap }
+  }
+  if (head === "step_pitch") {
+    let midi = intOrNull(toks[1])
+    if (midi === null) {
+      return { kind: "error", msg: "step_pitch: expected `step_pitch <midi> [bar <selector>]`" }
+    }
+    let bar = null
+    if (toks.length >= 4 && toks[2] === "bar") {
+      bar = parseBarSelector(toks[3])
+    }
+    return { kind: "stepPitch", midi: midi, bar: bar }
+  }
+  let lane = laneName(head)
+  if (lane !== null) {
+    let values = []
+    let i = 1
+    while (i < toks.length) {
+      if (toks[i] !== "|") {
+        values.push(lane === "lyric" ? toks[i] : numOrNull(toks[i]))
+      }
+      i = i + 1
+    }
+    return { kind: "stepLane", lane: lane, values: values }
+  }
+
+  // Host dialect — checked LAST, so a host can add vocabulary but never silently shadow a core head.
+  let dialect = bodyDialects[head]
+  if (dialect !== null) {
+    return dialect(head, toks)
+  }
+
+  return { kind: "unknown", head: head, tokens: toks }
+}
+
+/// Run `parseBodyLine` over the `body[]` rows `parseProgram` produced, keeping the source line
+/// number on each result and splitting `kind: "error"` rows out into `errors`.
+export fn parseTrackBody(bodyRows) {
+  let rows = []
+  let errors = []
+  if (!(bodyRows && typeof bodyRows.length === "number")) {
+    return { rows: rows, errors: errors }
+  }
+  let i = 0
+  while (i < bodyRows.length) {
+    let src = bodyRows[i]
+    let parsed = parseBodyLine(src.tokens)
+    if (parsed.kind === "error") {
+      errors.push({ line: src.lineNo, msg: parsed.msg })
+    } else {
+      parsed.lineNo = src.lineNo
+      rows.push(parsed)
+    }
+    i = i + 1
+  }
+  return { rows: rows, errors: errors }
+}

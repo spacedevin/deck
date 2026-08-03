@@ -78,7 +78,15 @@ track <displayName> id <channelId> gen <generatorId|macro> [ * <N|inf> ] [ <para
 
 ## Track / clip body
 
-Parser stores indented body lines as opaque token rows (except `gen_block` collection). The following heads are the **standard language** hosts apply:
+`parseProgram` stores indented body lines as token rows (except `gen_block` collection);
+**`parseBodyLine` / `parseTrackBody`** turn those rows into typed values. The heads below are the
+standard language.
+
+Body parsing is deliberately **parse-only**: an absent optional is `null` so the host applies its own
+default, and there is no clamping or range checking — that is host policy, and hosts differ (one
+clamps an out-of-range lock, another rejects it). Range checks needing track context (`note` start vs
+`* N`) can't live here at all. An unrecognised head comes back as `kind: "unknown"` so a host dialect
+can claim it via `registerBodyLineDialect` — see [DECK_EXTENSION.md](DECK_EXTENSION.md).
 
 ### Mix
 

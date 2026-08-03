@@ -1,6 +1,25 @@
 import { normalizeGeneratorId } from './RegistryMap.tish'
 import { parseScaleRoot } from '../ScaleRoot.tish'
 
+let topLevelStatements = {}
+
+/// Register a host statement at the top level. `parseFn(head, tokens) -> value`; the result lands in
+/// the AST's `hostStatements[head]` array.
+///
+/// This is the top-level twin of `registerGenBlockDialect` / `registerBodyLineDialect`. Without it a
+/// host that needs one extra statement — tish-gba's `wave <name> <32 hex nibbles>` — has to fork the
+/// parser, which is how the GBA implementation ended up a separate grammar rather than a subset.
+export fn registerTopLevelStatement(head, parseFn) {
+  if (!parseFn) {
+    return
+  }
+  topLevelStatements[String(head)] = parseFn
+}
+
+export fn clearTopLevelStatements() {
+  topLevelStatements = {}
+}
+
 export fn tokenize(text) {
   let t = text.trim()
   let out = []
@@ -58,6 +77,7 @@ export fn isNumberToken(s) {
 export fn parseProgram(source) {
   let errors = []
   let directives = []
+  let hostStatements = {}
   let tplVersion = 0
   let bpm = null
   let tracks = []
@@ -506,6 +526,17 @@ export fn parseProgram(source) {
       continue
     }
 
+    // Host-registered statement (e.g. tish-gba's `wave <name> <hex>`) — checked last, so a host can
+    // add vocabulary but never shadow the core language.
+    let hostFn = topLevelStatements[head]
+    if (hostFn !== null) {
+      if (hostStatements[head] === null) {
+        hostStatements[head] = []
+      }
+      hostStatements[head].push({ lineNo: i, value: hostFn(head, toks) })
+      continue
+    }
+
     errors.push({ line: i, msg: "unexpected top-level: " + head })
   }
 
@@ -536,6 +567,7 @@ export fn parseProgram(source) {
     scaleMode: scaleMode,
     deckMix: deckMix,
     directives: directives,
+    hostStatements: hostStatements,
     errors: errors
   }
 }

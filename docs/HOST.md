@@ -9,8 +9,10 @@ Call these once at app/test start (idempotent if you gate with a `registered` fl
 1. **`registerGeneratorIdAliases(forward, emit)`** — deck snake_case ↔ host camelCase ids  
 2. **`registerParamKeyAliases(map)`** — optional extra snake → camel for `gen` keys  
 3. **`registerGenBlockDialect(ids, parseFn)`** — e.g. `patch`, `matrix_fm`  
-4. **`registerHighlightKeywords({ body: [...] })`** — dialect keywords for `classifyLine`  
-5. **`registerBuiltinMacros(map)`** — named patch templates (optional)
+4. **`registerBodyLineDialect(heads, parseFn)`** — extra track/clip body heads (optional)  
+5. **`registerTopLevelStatement(head, parseFn)`** — extra top-level statements (optional)  
+6. **`registerHighlightKeywords({ body: [...] })`** — dialect keywords for `classifyLine`  
+7. **`registerBuiltinMacros(map)`** — named patch templates (optional)
 
 ```tish
 import {
@@ -51,12 +53,15 @@ let ast = parseProgram(source)
 - `clearGeneratorIdAliases`
 - `clearParamKeyAliases`
 - `clearGenBlockDialects`
+- `clearBodyLineDialects`
+- `clearTopLevelStatements`
 - `clearBuiltinMacros`
 
 ## What the host must implement
 
 | Concern | Typical modules |
 |---------|-----------------|
+| Body rows → project IR (clamps, defaults, range checks) | apply |
 | AST → project | apply / merge |
 | project → `.deck` text | emit |
 | Incremental line stream | buffer + re-apply block |
