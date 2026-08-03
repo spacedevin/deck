@@ -9,8 +9,10 @@ Call these once at app/test start (idempotent if you gate with a `registered` fl
 1. **`registerGeneratorIdAliases(forward, emit)`** — deck snake_case ↔ host camelCase ids  
 2. **`registerParamKeyAliases(map)`** — optional extra snake → camel for `gen` keys  
 3. **`registerGenBlockDialect(ids, parseFn)`** — e.g. `patch`, `matrix_fm`  
-4. **`registerHighlightKeywords({ body: [...] })`** — dialect keywords for `classifyLine`  
-5. **`registerBuiltinMacros(map)`** — named patch templates (optional)
+4. **`registerBodyLineDialect(heads, parseFn)`** — extra track/clip body heads (optional)  
+5. **`registerTopLevelStatement(head, parseFn)`** — extra top-level statements (optional)  
+6. **`registerHighlightKeywords({ body: [...] })`** — dialect keywords for `classifyLine`  
+7. **`registerBuiltinMacros(map)`** — named patch templates (optional)
 
 ```tish
 import {
@@ -51,12 +53,15 @@ let ast = parseProgram(source)
 - `clearGeneratorIdAliases`
 - `clearParamKeyAliases`
 - `clearGenBlockDialects`
+- `clearBodyLineDialects`
+- `clearTopLevelStatements`
 - `clearBuiltinMacros`
 
 ## What the host must implement
 
 | Concern | Typical modules |
 |---------|-----------------|
+| Body rows → project IR (clamps, defaults, range checks) | apply |
 | AST → project | apply / merge |
 | project → `.deck` text | emit |
 | Incremental line stream | buffer + re-apply block |
@@ -68,14 +73,32 @@ let ast = parseProgram(source)
 
 ## AST shape (summary)
 
-`parseProgram` returns an object including (fields appear when present in source):
+`parseProgram` returns one flat object. Every field is always present; the value is `null` (or an
+empty array) when the source didn't set it.
 
-- Globals: `bpm`, `swing`, `scaleRoot` / `scaleMode`, `launchQuant`, `songSeed`, `xfade`, `mainDeck`, `deckMix`, …
-- `tracks[]` — header fields + `body` token rows; `genBlock` when collected
-- `macros[]`, `automations[]`, `clips[]`, session / song / follow blocks
-- Soft no-ops: `@ perf_step` ignored; other `@` lines are host stream-control
+| Field | Shape |
+|-------|-------|
+| `tplVersion` | number (`deck 1` / `tpl 1`) |
+| `bpm`, `swing`, `launchQuant`, `songSeed`, `mainDeck` | scalar or `null` |
+| `scaleRoot`, `scaleMode` | pitch class `0..11` (`-1` = scale off) + mode name |
+| `xfade` | `{ x, y }` or `null` |
+| `deckMix` | `{ A\|B\|C\|D: { hi, mid, lo, flt, vol } }` or `null` |
+| `tracks[]` | `{ name, id, generatorId, rawGenId, genParams, loopBars, body[], genBlocks[] }` |
+| `clipBlocks[]` | `{ clipId, channelId, bars, displayName, body[] }` |
+| `autos[]` | `{ lineNo, header[], points: [{ beat, value }] }` |
+| `macros` | object map `name → { params, body[] }` |
+| `removeTrackIds[]` | channel ids from `remove_track` |
+| `masterMixTokens`, `actorMixRows[]` | raw token rows for the host to interpret |
+| `sessionSceneCount`, `sessionSlots[]`, `song`, `follow` | session / arrangement |
+| `directives[]` | `{ lineNo, verb, tokens[] }` — every `@ …` line |
+| `errors[]` | `{ line, msg }` — the parser accumulates, it never throws |
 
-Exact field names follow the parser; treat the grammar doc as the surface contract and tests as round-trip truth.
+Track and clip `body[]` rows are `{ lineNo, tokens[], raw }`; `genBlocks[]` entries are
+`{ generatorId, lines[] }`.
+
+**Control directives.** `@ launch`, `@ transport`, `@ cue`, `@ throw`, `@ fx`, `@ deck`, `@ perf_step`
+are transient stream lines, not document state, so the parser collects them into `directives[]`
+verbatim and leaves the meaning to the host. They never produce errors.
 
 ## Package docs
 

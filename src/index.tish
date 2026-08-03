@@ -1,7 +1,20 @@
 // @spacedevin/deck — .deck language only.
 // Host registers generator ids, param keys, macros, and gen_block dialects.
 
-export { tokenize, isNumberToken, parseProgram } from "./deckfile/Parser.tish"
+export {
+  tokenize,
+  isNumberToken,
+  parseProgram,
+  registerTopLevelStatement,
+  clearTopLevelStatements
+} from "./deckfile/Parser.tish"
+export {
+  parseBodyLine,
+  parseTrackBody,
+  parseBoolish,
+  registerBodyLineDialect,
+  clearBodyLineDialects
+} from "./deckfile/Body.tish"
 export { formatTplBeat, formatTplFloat } from "./deckfile/Format.tish"
 export {
   normalizeGeneratorId,

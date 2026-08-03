@@ -1,0 +1,32 @@
+{
+  "_comment": [
+    "Restricted profiles: an implementation that supports a SUBSET of the language.",
+    "A profile lists the cases it may legitimately reject, with the reason. Any case NOT listed",
+    "must parse identically to <case>.expected.json. That is what keeps a subset a subset rather",
+    "than letting it drift into a separate grammar."
+  ],
+  "profiles": {
+    "gba": {
+      "description": "tish-gba: build-time bake to LR35902 + GBA PCM. Two generators, no session/automation/co-DJ.",
+      "mayReject": {
+        "003-steps-and-locks": "step_prob/ratchet/nudge are dropped at bake; `steps euclid` must be expanded to notes",
+        "005-mix-fx-voice-deck": "fx / voice / deck routing have no hardware meaning",
+        "006-globals": "swing, scale, xfade, deck_mix, master_mix, actor_mix are host-mixer concepts",
+        "007-session-song-follow": "no session grid, clips, song arrangement, follow actions or automation",
+        "008-macros-genblock": "macros and gen_block are not baked",
+        "009-directives": "@ directives are live-performance stream lines",
+        "010-errors": "error-message text is implementation-specific",
+        "011-golden": "uses generators and sections outside the GBA subset"
+      },
+      "mustAccept": [
+        "001-comments-and-sharps",
+        "002-track-header",
+        "004-notes"
+      ],
+      "extensions": {
+        "topLevel": ["wave"],
+        "body": ["layer", "intensity", "min_intensity"]
+      }
+    }
+  }
+}

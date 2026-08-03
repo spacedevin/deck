@@ -37,7 +37,14 @@ import {
   parseScaleRoot,
   scaleRootNames,
   scaleModeNames,
-  scaleIntervals
+  scaleIntervals,
+  parseBodyLine,
+  parseTrackBody,
+  parseBoolish,
+  registerBodyLineDialect,
+  clearBodyLineDialects,
+  registerTopLevelStatement,
+  clearTopLevelStatements
 } from "../dist/deck.js"
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..")
@@ -343,6 +350,155 @@ check("scale alone", parseProgram("scale\n").scaleRoot === null)
 
 // Macro numeric empty value stays string path: c= → empty string → Number("") is 0 which is nan? Number("")===0 actually
 // Covered via c=
+
+// ── Comments: `#` only starts one at column 0 or after whitespace ──────────────
+// Cutting at the first `#` anywhere truncated any token containing one, so `scale F# minor` became
+// `scale F` — no scale set, and no error to say so.
+check("sharp root survives", parseProgram("scale F# minor\n").scaleRoot === 6)
+check("sharp root mode", parseProgram("scale F# minor\n").scaleMode === "minor")
+check("sharp root == flat spelling", parseProgram("scale Gb minor\n").scaleRoot === 6)
+let sharpName = parseProgram("track C# Lead id c1 gen fm\n")
+check("sharp track name", sharpName.tracks[0].name === "C# Lead")
+check("sharp track parses", sharpName.errors.length === 0)
+check("trailing comment cut", parseProgram("bpm 120  # tempo\n").bpm === 120)
+check("column-0 comment", parseProgram("# note\nbpm 90\n").bpm === 90)
+check("column-0 comment no err", parseProgram("# note\nbpm 90\n").errors.length === 0)
+
+// ── Control directives are collected, not errors ──────────────────────────────
+let dir = parseProgram("@ transport play\n@ launch scene 2\n@ perf_step 16\nbpm 120\n")
+check("directives collected", dir.directives.length === 3)
+check("directive verb", dir.directives[0].verb === "transport")
+check("directive tokens", dir.directives[1].tokens.join(" ") === "scene 2")
+check("directives no errors", dir.errors.length === 0)
+check("directives do not block parse", dir.bpm === 120)
+check("bare @ errors", parseProgram("@\n").errors.some((e) => e.msg.includes("directive verb")))
+
+// ── Body lines ────────────────────────────────────────────────────────────────
+const body = (s) => parseBodyLine(tokenize(s))
+
+check("boolish 1", parseBoolish("1") === true)
+check("boolish true", parseBoolish("true") === true)
+check("boolish on", parseBoolish("on") === true)
+check("boolish yes", parseBoolish("yes") === true)
+check("boolish off", parseBoolish("off") === false)
+
+let mx = body("mix gain 0.9 pan -0.2 mute on solo 0 eq_lo 1 eq_mid 2 eq_hi 3")
+check("mix gain", mx.gain === 0.9)
+check("mix pan", mx.pan === -0.2)
+check("mix mute", mx.mute === true)
+check("mix solo", mx.solo === false)
+check("mix eq", mx.eqLo === 1 && mx.eqMid === 2 && mx.eqHi === 3)
+check("mix absent is null", body("mix gain 1").pan === null)
+check("mix bad number", body("mix gain nope").gain === null)
+
+let st = body("steps x . . . X . . . 1 . . . | 0 . . .")
+check("steps literal len", st.on.length === 16)
+check("steps X on", st.on[4] === true)
+check("steps 1 on", st.on[8] === true)
+check("steps 0 off", st.on[12] === false)
+check("steps mode", st.mode === "literal")
+check("steps multi-bar", body("steps " + "x . . . ".repeat(8)).on.length === 32)
+let eu = body("steps euclid 5 16")
+check("steps euclid mode", eu.mode === "euclid")
+check("steps euclid hits", eu.hits === 5 && eu.len === 16)
+check("steps euclid fill", eu.on.filter(Boolean).length === 5)
+check("steps euclid bad", body("steps euclid x 16").kind === "error")
+
+let nt = body("note 50 1.0 0.5 v 85 bar even p 0.8 r 2 n -0.25 l la")
+check("note midi", nt.midi === 50)
+check("note start", nt.startBeat === 1 && nt.durBeats === 0.5)
+check("note vel", nt.vel === 85)
+check("note locks", nt.prob === 0.8 && nt.ratchet === 2 && nt.nudge === -0.25)
+check("note lyric", nt.lyric === "la")
+check("note bar selector", nt.bar !== null)
+check("note locks null when absent", body("note 60 0 1 v 80").prob === null)
+check("note needs v", body("note 60 0 1 90").kind === "error")
+check("note needs numbers", body("note zz 0 1 v 80").kind === "error")
+// Locks are NOT clamped here — that is host policy (Deckard clamps, tish-gba rejects).
+check("note prob unclamped", body("note 60 0 1 v 80 p 5").prob === 5)
+
+check("notes_clear", body("notes_clear").kind === "notesClear")
+
+let lane = body("step_vel 120 100 | 70")
+check("lane name", lane.lane === "vel")
+check("lane values", lane.values.join(",") === "120,100,70")
+check("lane prob", body("step_prob 1 0.5").lane === "prob")
+check("lane ratchet", body("step_ratchet 1 2").lane === "ratchet")
+check("lane nudge", body("step_nudge 0 -0.1").lane === "nudge")
+let lyr = body("step_lyric la di")
+check("lane lyric strings", lyr.values[0] === "la" && lyr.values[1] === "di")
+
+let sp = body("step_pitch 36 bar 2n+1")
+check("step_pitch midi", sp.midi === 36)
+check("step_pitch bar", sp.bar !== null)
+check("step_pitch no bar", body("step_pitch 36").bar === null)
+check("step_pitch bad", body("step_pitch zz").kind === "error")
+
+check("loops n", body("loops 8").cap === 8)
+check("loops inf", body("loops inf").cap === null)
+check("loops infinite", body("loops infinite").cap === null)
+check("loops bad", body("loops zz").kind === "error")
+
+let fx = body("fx reverb 0.3 type lowpass cutoff 1200 res 0.4 lfo_rate 2")
+check("fx reverb alias", fx.params.reverbSend === 0.3)
+check("fx type alias", fx.params.filterType === "lowpass")
+check("fx numeric", fx.params.cutoff === 1200 && fx.params.res === 0.4)
+check("fx snake to camel", fx.params.lfoRate === 2)
+
+let dk = body("deck A slot 2")
+check("deck lane", dk.lane === "A")
+check("deck slot", dk.slot === 2)
+check("deck live", body("deck live").lane === "live")
+check("deck invalid lane", body("deck Z").lane === null)
+check("deck no slot", body("deck B").slot === null)
+
+check("voice params", body("voice octave -1 arp up").params.octave === -1)
+check("gen params", body("gen wave_shape saw vol 15").params.waveShape === "saw")
+let ad = body("adsr a 0 d 0.1 s 0.5 r 0.03")
+check("adsr", ad.a === 0 && ad.d === 0.1 && ad.s === 0.5 && ad.r === 0.03)
+check("transpose", body("transpose -12").semitones === -12)
+check("transpose bad", body("transpose zz").kind === "error")
+
+check("unknown head", body("zzz 1").kind === "unknown")
+check("unknown keeps tokens", body("zzz 1").tokens.length === 2)
+check("empty tokens", parseBodyLine([]).kind === "unknown")
+check("non-array tokens", parseBodyLine(null).kind === "unknown")
+
+// parseTrackBody over the rows parseProgram produced
+let tb = parseProgram("track T id c0 gen g\n  mix gain 1\n  note 60 0 1 90\n  steps x . . .\n")
+let parsedBody = parseTrackBody(tb.tracks[0].body)
+check("trackBody rows", parsedBody.rows.length === 2)
+check("trackBody keeps lineNo", parsedBody.rows[0].lineNo === 2)
+check("trackBody errors", parsedBody.errors.length === 1)
+check("trackBody error line", parsedBody.errors[0].line === 3)
+check("trackBody non-array", parseTrackBody(null).rows.length === 0)
+
+// ── Host extension hooks ──────────────────────────────────────────────────────
+registerBodyLineDialect(["layer", "intensity"], (head, toks) => ({
+  kind: "layer",
+  level: Math.floor(Number(toks[1]))
+}))
+check("body dialect array", body("layer 2").level === 2)
+check("body dialect alias", body("intensity 3").level === 3)
+registerBodyLineDialect("solo_flag", () => ({ kind: "soloFlag" }))
+check("body dialect string form", body("solo_flag").kind === "soloFlag")
+registerBodyLineDialect("ignored", null)
+check("body dialect null fn ignored", body("ignored").kind === "unknown")
+registerBodyLineDialect(42, () => ({ kind: "nope" }))
+check("body dialect bad heads ignored", body("42").kind === "unknown")
+clearBodyLineDialects()
+check("body dialect cleared", body("layer 2").kind === "unknown")
+
+registerTopLevelStatement("wave", (head, toks) => ({ name: toks[1], hex: toks[2] }))
+let hs = parseProgram("deck 1\nwave saw abcdef\nwave sq 012345\n")
+check("host stmt collected", hs.hostStatements.wave.length === 2)
+check("host stmt value", hs.hostStatements.wave[0].value.name === "saw")
+check("host stmt lineNo", hs.hostStatements.wave[0].lineNo === 2)
+check("host stmt no error", hs.errors.length === 0)
+registerTopLevelStatement("nope", null)
+check("host stmt null fn ignored", parseProgram("nope 1\n").errors.length === 1)
+clearTopLevelStatements()
+check("host stmt cleared", parseProgram("wave saw abcdef\n").errors.length === 1)
 
 if (failed > 0) {
   console.log(failed + " FAILED")

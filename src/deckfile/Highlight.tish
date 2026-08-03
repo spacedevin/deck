@@ -30,6 +30,7 @@ let BODY_KEYS = {}
 BODY_KEYS["mix"] = true
 BODY_KEYS["steps"] = true
 BODY_KEYS["note"] = true
+BODY_KEYS["notes_clear"] = true
 BODY_KEYS["adsr"] = true
 BODY_KEYS["transpose"] = true
 BODY_KEYS["loops"] = true
@@ -83,7 +84,7 @@ export fn isStepToken(s) {
 }
 
 export fn classifyLine(line) {
-  if ((line === null || line === undefined)) {
+  if (line === null) {
     return { kind: "plain", tokens: [], stepIndices: [] }
   }
   let t = line.trim()

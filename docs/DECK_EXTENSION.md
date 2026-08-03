@@ -1,3 +1,33 @@
+# Host extensions
+
+Three registries let a host add vocabulary **without forking the grammar**. That matters: the one
+implementation that had no such hook (tish-gba, which needed a top-level `wave` statement and a
+`layer` body key) ended up a separate grammar rather than a subset of this one.
+
+| Extension point | Adds | API |
+|-----------------|------|-----|
+| Top-level statement | `wave <name> <hex>` | `registerTopLevelStatement(head, fn)` → `ast.hostStatements[head][]` |
+| Track / clip body head | `layer 2` | `registerBodyLineDialect(heads, fn)` → the row `parseBodyLine` returns |
+| `gen_block` dialect | `patch`, `matrix_fm` | `registerGenBlockDialect(ids, fn)` |
+
+```tish
+import { registerTopLevelStatement, registerBodyLineDialect } from "@spacedevin/deck"
+
+// tish-gba: `wave <name> <32 hex nibbles>`
+registerTopLevelStatement("wave", (head, toks) => ({ name: toks[1], hex: toks[2] }))
+
+// tish-gba: `layer|intensity|min_intensity <0..3>` — one head set, one parser
+registerBodyLineDialect(["layer", "intensity", "min_intensity"], (head, toks) => {
+  return { kind: "layer", level: Math.floor(Number(toks[1])) }
+})
+```
+
+Registered heads are checked **after** the built-in ones in both cases, so a host can extend the
+language but never silently shadow it. `clearBodyLineDialects` and `clearTopLevelStatements` reset
+both (tests).
+
+---
+
 # gen_block extensions
 
 Core language collects:

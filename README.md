@@ -30,10 +30,12 @@ npm run examples
 | Area | API |
 |------|-----|
 | Lex / parse | `tokenize`, `isNumberToken`, `parseProgram` |
+| Track / clip body | `parseBodyLine`, `parseTrackBody`, `parseBoolish` |
 | Format | `formatTplBeat`, `formatTplFloat` |
 | Scale | `parseScaleRoot`, `scaleRootNames`, `scaleModeNames`, `scaleIntervals` |
 | Bar / Euclid | `parseBarSelector`, `barSelectorMatches`, `euclideanPattern` |
 | Registries | `registerGeneratorIdAliases`, `registerParamKeyAliases`, `paramKeyToCamel`, … |
+| Host extensions | `registerBodyLineDialect`, `registerTopLevelStatement`, `registerGenBlockDialect` |
 | Macros | `registerBuiltinMacros`, `lookupMacro`, `expandMacroBody` |
 | gen_block | `parseGenBlock`, `registerGenBlockDialect` |
 | Highlight | `classifyLine`, `isKeyword`, `registerHighlightKeywords` |
@@ -41,6 +43,23 @@ npm run examples
 ## Out of scope (host)
 
 Apply/emit to project IR · session/co-DJ · audio engines · instrument catalogs · builtin macro catalogs · HTML highlight CSS · graph editor mutators.
+
+## Rust
+
+The same `src/index.tish` also emits a Rust library crate, so a Rust consumer (tish-gba's build-time
+bake) parses `.deck` with this parser rather than its own:
+
+```bash
+npm run build:rust   # -> crate/  (crates.io: `deckfile`)
+npm run test:rust    # the same conformance corpus, from Rust
+```
+
+```rust
+let program = deckfile::parse(src);          // typed
+let ast = deckfile::parseProgram(value);     // the raw AST, same shape as JS
+```
+
+One source, three targets — Tish, JS, Rust — checked against one corpus.
 
 ## Docs
 
@@ -58,10 +77,15 @@ Matches [lattish](https://github.com/tishlang/lattish): semantic-release prerele
 ## Test / coverage
 
 ```bash
-npm test              # build + API/grammar suite + tish smoke
-npm run test:coverage # c8 on dist/deck.js — 100% lines / functions / statements
-npm run examples      # runnable demos
+npm test                 # build + API/grammar suite + conformance + tish smoke
+npm run test:coverage    # c8 on dist/deck.js — 100% lines / functions / statements
+npm run test:conformance # the cross-implementation corpus
+npm run examples         # runnable demos
 ```
+
+**[`conformance/`](conformance/)** is the contract between implementations: the same `.deck` inputs
+and expected parses are run by the JS build, the Rust crate emitted from the same Tish source, and
+any restricted host (via a profile). It is what makes drift a test failure rather than a surprise.
 
 Branch % is lower (~60%) because the Tish→JS emit adds many `?? null` / typeof guards that are defensive noise, not language logic. Line coverage is the gate in CI.
 

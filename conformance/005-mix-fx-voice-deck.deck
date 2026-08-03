@@ -1,0 +1,8 @@
+deck 1
+track Lead id c4 gen fm
+  mix gain 0.9 pan -0.2 mute on solo 0 eq_lo 1 eq_mid 2 eq_hi 3
+  fx reverb 0.3 type lowpass cutoff 1200 res 0.4 lfo_rate 2 lfo_depth 0.5 drive 1.5
+  voice octave -1 arp up chord maj arprate 1/8 inversion 1 strum 0.02
+  deck A slot 2
+  gen wave_shape saw vol 15 pitch_drop -12
+  adsr a 0 d 0.1 s 0.5 r 0.03

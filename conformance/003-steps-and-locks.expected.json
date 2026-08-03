@@ -1,0 +1,401 @@
+{
+  "program": {
+    "tplVersion": 1,
+    "bpm": null,
+    "tracks": [
+      {
+        "name": "Kick",
+        "id": "c0",
+        "generatorId": "noise_burst",
+        "rawGenId": "noise_burst",
+        "genParams": {},
+        "loopBars": null,
+        "body": [
+          {
+            "lineNo": 3,
+            "tokens": [
+              "steps",
+              "x",
+              ".",
+              ".",
+              ".",
+              "X",
+              ".",
+              ".",
+              ".",
+              "1",
+              ".",
+              ".",
+              ".",
+              "|",
+              "0",
+              ".",
+              ".",
+              "."
+            ],
+            "raw": "steps x . . . X . . . 1 . . . | 0 . . ."
+          },
+          {
+            "lineNo": 4,
+            "tokens": [
+              "step_vel",
+              "120",
+              "100",
+              "100",
+              "100",
+              "70",
+              "100",
+              "100",
+              "100",
+              "100",
+              "100",
+              "100",
+              "100",
+              "90",
+              "100",
+              "100",
+              "100"
+            ],
+            "raw": "step_vel 120 100 100 100 70 100 100 100 100 100 100 100 90 100 100 100"
+          },
+          {
+            "lineNo": 5,
+            "tokens": [
+              "step_prob",
+              "1",
+              "1",
+              "0.5",
+              "1"
+            ],
+            "raw": "step_prob 1 1 0.5 1"
+          },
+          {
+            "lineNo": 6,
+            "tokens": [
+              "step_ratchet",
+              "1",
+              "2",
+              "1",
+              "1"
+            ],
+            "raw": "step_ratchet 1 2 1 1"
+          },
+          {
+            "lineNo": 7,
+            "tokens": [
+              "step_nudge",
+              "0",
+              "-0.1",
+              "0",
+              "0.25"
+            ],
+            "raw": "step_nudge 0 -0.1 0 0.25"
+          },
+          {
+            "lineNo": 8,
+            "tokens": [
+              "step_pitch",
+              "36",
+              "bar",
+              "2n+1"
+            ],
+            "raw": "step_pitch 36 bar 2n+1"
+          }
+        ],
+        "genBlocks": []
+      },
+      {
+        "name": "Hat",
+        "id": "c1",
+        "generatorId": "noise_burst",
+        "rawGenId": "noise_burst",
+        "genParams": {},
+        "loopBars": 2,
+        "body": [
+          {
+            "lineNo": 10,
+            "tokens": [
+              "steps",
+              "euclid",
+              "5",
+              "16"
+            ],
+            "raw": "steps euclid 5 16"
+          },
+          {
+            "lineNo": 11,
+            "tokens": [
+              "loops",
+              "8"
+            ],
+            "raw": "loops 8"
+          }
+        ],
+        "genBlocks": []
+      },
+      {
+        "name": "Perc",
+        "id": "c2",
+        "generatorId": "noise_burst",
+        "rawGenId": "noise_burst",
+        "genParams": {},
+        "loopBars": null,
+        "body": [
+          {
+            "lineNo": 13,
+            "tokens": [
+              "steps",
+              "x",
+              ".",
+              ".",
+              ".",
+              "x",
+              ".",
+              ".",
+              ".",
+              "x",
+              ".",
+              ".",
+              ".",
+              "x",
+              ".",
+              ".",
+              ".",
+              "x",
+              ".",
+              ".",
+              ".",
+              "x",
+              ".",
+              ".",
+              ".",
+              "x",
+              ".",
+              ".",
+              ".",
+              "x",
+              ".",
+              ".",
+              "."
+            ],
+            "raw": "steps x . . . x . . . x . . . x . . . x . . . x . . . x . . . x . . ."
+          },
+          {
+            "lineNo": 14,
+            "tokens": [
+              "loops",
+              "inf"
+            ],
+            "raw": "loops inf"
+          }
+        ],
+        "genBlocks": []
+      }
+    ],
+    "removeTrackIds": [],
+    "macros": {},
+    "autos": [],
+    "masterMixTokens": null,
+    "actorMixRows": [],
+    "clipBlocks": [],
+    "sessionSceneCount": null,
+    "sessionSlots": [],
+    "song": null,
+    "follow": null,
+    "launchQuant": null,
+    "songSeed": null,
+    "xfade": null,
+    "mainDeck": null,
+    "swing": null,
+    "scaleRoot": null,
+    "scaleMode": null,
+    "deckMix": null,
+    "directives": [],
+    "hostStatements": {},
+    "errors": []
+  },
+  "trackBodies": [
+    {
+      "id": "c0",
+      "rows": [
+        {
+          "kind": "steps",
+          "mode": "literal",
+          "on": [
+            true,
+            false,
+            false,
+            false,
+            true,
+            false,
+            false,
+            false,
+            true,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false
+          ],
+          "lineNo": 3
+        },
+        {
+          "kind": "stepLane",
+          "lane": "vel",
+          "values": [
+            120,
+            100,
+            100,
+            100,
+            70,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            90,
+            100,
+            100,
+            100
+          ],
+          "lineNo": 4
+        },
+        {
+          "kind": "stepLane",
+          "lane": "prob",
+          "values": [
+            1,
+            1,
+            0.5,
+            1
+          ],
+          "lineNo": 5
+        },
+        {
+          "kind": "stepLane",
+          "lane": "ratchet",
+          "values": [
+            1,
+            2,
+            1,
+            1
+          ],
+          "lineNo": 6
+        },
+        {
+          "kind": "stepLane",
+          "lane": "nudge",
+          "values": [
+            0,
+            -0.1,
+            0,
+            0.25
+          ],
+          "lineNo": 7
+        },
+        {
+          "kind": "stepPitch",
+          "midi": 36,
+          "bar": {
+            "kind": "mod",
+            "a": 2,
+            "b": 1
+          },
+          "lineNo": 8
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "c1",
+      "rows": [
+        {
+          "kind": "steps",
+          "mode": "euclid",
+          "hits": 5,
+          "len": 16,
+          "on": [
+            false,
+            false,
+            false,
+            true,
+            false,
+            false,
+            true,
+            false,
+            false,
+            true,
+            false,
+            false,
+            true,
+            false,
+            false,
+            true
+          ],
+          "lineNo": 10
+        },
+        {
+          "kind": "loops",
+          "cap": 8,
+          "lineNo": 11
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "c2",
+      "rows": [
+        {
+          "kind": "steps",
+          "mode": "literal",
+          "on": [
+            true,
+            false,
+            false,
+            false,
+            true,
+            false,
+            false,
+            false,
+            true,
+            false,
+            false,
+            false,
+            true,
+            false,
+            false,
+            false,
+            true,
+            false,
+            false,
+            false,
+            true,
+            false,
+            false,
+            false,
+            true,
+            false,
+            false,
+            false,
+            true,
+            false,
+            false,
+            false
+          ],
+          "lineNo": 13
+        },
+        {
+          "kind": "loops",
+          "cap": null,
+          "lineNo": 14
+        }
+      ],
+      "errors": []
+    }
+  ],
+  "clipBodies": []
+}

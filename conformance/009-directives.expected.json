@@ -1,0 +1,91 @@
+{
+  "program": {
+    "tplVersion": 1,
+    "bpm": 120,
+    "tracks": [],
+    "removeTrackIds": [],
+    "macros": {},
+    "autos": [],
+    "masterMixTokens": null,
+    "actorMixRows": [],
+    "clipBlocks": [],
+    "sessionSceneCount": null,
+    "sessionSlots": [],
+    "song": null,
+    "follow": null,
+    "launchQuant": null,
+    "songSeed": null,
+    "xfade": null,
+    "mainDeck": null,
+    "swing": null,
+    "scaleRoot": null,
+    "scaleMode": null,
+    "deckMix": null,
+    "directives": [
+      {
+        "lineNo": 2,
+        "verb": "transport",
+        "tokens": [
+          "play"
+        ]
+      },
+      {
+        "lineNo": 3,
+        "verb": "launch",
+        "tokens": [
+          "scene",
+          "2"
+        ]
+      },
+      {
+        "lineNo": 4,
+        "verb": "launch",
+        "tokens": [
+          "clip",
+          "c0",
+          "clip_kick_a"
+        ]
+      },
+      {
+        "lineNo": 5,
+        "verb": "cue",
+        "tokens": [
+          "1"
+        ]
+      },
+      {
+        "lineNo": 6,
+        "verb": "throw",
+        "tokens": []
+      },
+      {
+        "lineNo": 7,
+        "verb": "fx",
+        "tokens": [
+          "echo",
+          "on"
+        ]
+      },
+      {
+        "lineNo": 8,
+        "verb": "deck",
+        "tokens": [
+          "A",
+          "cut",
+          "on"
+        ]
+      },
+      {
+        "lineNo": 9,
+        "verb": "perf_step",
+        "tokens": [
+          "16"
+        ]
+      }
+    ],
+    "hostStatements": {},
+    "errors": []
+  },
+  "trackBodies": [],
+  "clipBodies": []
+}

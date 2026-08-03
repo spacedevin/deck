@@ -66,7 +66,7 @@ export fn scaleModeNames() {
 
 // Parse a root token: a note name ("C", "f#", "Bb") or a raw pitch class 0..11. Returns 0..11 or null.
 export fn parseScaleRoot(tok) {
-  if (tok === null || tok === undefined) {
+  if (tok === null) {
     return null
   }
   let s = String(tok)

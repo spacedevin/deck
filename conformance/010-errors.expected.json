@@ -1,0 +1,90 @@
+{
+  "program": {
+    "tplVersion": 1,
+    "bpm": null,
+    "tracks": [
+      {
+        "name": "Ok",
+        "id": "c0",
+        "generatorId": "g",
+        "rawGenId": "g",
+        "genParams": {},
+        "loopBars": null,
+        "body": [],
+        "genBlocks": []
+      }
+    ],
+    "removeTrackIds": [],
+    "macros": {},
+    "autos": [],
+    "masterMixTokens": null,
+    "actorMixRows": [],
+    "clipBlocks": [
+      {
+        "clipId": "bad",
+        "channelId": "c0",
+        "bars": 1,
+        "displayName": "",
+        "body": []
+      }
+    ],
+    "sessionSceneCount": null,
+    "sessionSlots": [],
+    "song": null,
+    "follow": null,
+    "launchQuant": null,
+    "songSeed": null,
+    "xfade": null,
+    "mainDeck": null,
+    "swing": null,
+    "scaleRoot": null,
+    "scaleMode": null,
+    "deckMix": null,
+    "directives": [],
+    "hostStatements": {},
+    "errors": [
+      {
+        "line": 2,
+        "msg": "track: expected track <name> id <id> gen <generatorId> [ * <N|inf> ]"
+      },
+      {
+        "line": 3,
+        "msg": "unexpected top-level: zzz"
+      },
+      {
+        "line": 4,
+        "msg": "end gen_block without open gen_block"
+      },
+      {
+        "line": 5,
+        "msg": "remove_track: expected `remove_track <id>`"
+      },
+      {
+        "line": 6,
+        "msg": "clip: bars must be >= 1"
+      },
+      {
+        "line": 7,
+        "msg": "track * N: N must be a positive integer"
+      },
+      {
+        "line": 8,
+        "msg": "@: expected a directive verb"
+      }
+    ]
+  },
+  "trackBodies": [
+    {
+      "id": "c0",
+      "rows": [],
+      "errors": []
+    }
+  ],
+  "clipBodies": [
+    {
+      "clipId": "bad",
+      "rows": [],
+      "errors": []
+    }
+  ]
+}

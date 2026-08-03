@@ -13,7 +13,7 @@ Times are in **quarter-note beats**. One bar = 4 beats = **16** sixteenth steps.
 ## Lexical
 
 - Lines are statements. Indentation (2+ spaces or tab) nests a body under the current open block (`track`, `clip`, `auto`, `macro`, `song`, `follow`, `gen_block`).
-- `#` starts a comment to end of line.
+- `#` starts a comment to end of line — but **only at column 0 or after whitespace**, so a `#` inside a token is data. That is what makes sharp note names (`scale F# minor`, a track named `C#maj`) work.
 - Tokens: whitespace-separated; numbers accepted by `isNumberToken`.
 - Legacy alias: `tpl` ≡ `deck` for the version header only.
 
@@ -55,7 +55,7 @@ These are recognized by `parseProgram`.
 | Clip | `clip <clipId> channel <channelId> bars <n> [name …]` + indented body | |
 | Song | `song` + indented `P<scene1> [x<repeat>]` or bare scene index | 1-based `P` |
 | Follow | `follow` + indented `P<scene> <a> <wa> [<b> <wb>]` | 1-based `P` |
-| Perf marker | `@ perf_step <n>` | Parsed as no-op by `parseProgram`; other `@` lines are stream-control (host) |
+| Control directive | `@ <verb> …` | Collected into `directives[]`; the verb is host-interpreted. See [Control directives](#control-directives-) |
 
 ### Scale modes
 
@@ -78,7 +78,15 @@ track <displayName> id <channelId> gen <generatorId|macro> [ * <N|inf> ] [ <para
 
 ## Track / clip body
 
-Parser stores indented body lines as opaque token rows (except `gen_block` collection). The following heads are the **standard language** hosts apply:
+`parseProgram` stores indented body lines as token rows (except `gen_block` collection);
+**`parseBodyLine` / `parseTrackBody`** turn those rows into typed values. The heads below are the
+standard language.
+
+Body parsing is deliberately **parse-only**: an absent optional is `null` so the host applies its own
+default, and there is no clamping or range checking — that is host policy, and hosts differ (one
+clamps an out-of-range lock, another rejects it). Range checks needing track context (`note` start vs
+`* N`) can't live here at all. An unrecognised head comes back as `kind: "unknown"` so a host dialect
+can claim it via `registerBodyLineDialect` — see [DECK_EXTENSION.md](DECK_EXTENSION.md).
 
 ### Mix
 
@@ -280,7 +288,9 @@ follow
 
 Transient **stream** lines. Most are **not** stored in a static project document; hosts apply them for performance / co-DJ.
 
-`parseProgram` only soft-handles `@ perf_step <n>` (ignored). Hosts typically also understand:
+`parseProgram` collects every `@ …` line into `directives[]` as `{ lineNo, verb, tokens }` and does
+not interpret the verb — that is host policy. A bare `@` with no verb is an error. Hosts typically
+understand:
 
 | Directive | Typical authority | Effect |
 |-----------|-------------------|--------|
@@ -293,6 +303,8 @@ Transient **stream** lines. Most are **not** stored in a static project document
 | `@ fx <echo\|filter> on\|off …` | master | Live master FX |
 | `@ deck <A\|B\|C\|D> <cut\|rev\|brake> on\|off` · `spin` | deck owner / master | Vinyl platter moves |
 | `@ perf_step <n>` | — | Schedule surrounding block for perf step `n` |
+
+Any other verb is collected too, so a host may define its own without a parser change.
 
 ---
 

@@ -12,42 +12,27 @@ if (!fs.existsSync(p)) {
   process.exit(1)
 }
 
-const PUBLIC = [
-  "tokenize",
-  "isNumberToken",
-  "parseProgram",
-  "formatTplBeat",
-  "formatTplFloat",
-  "normalizeGeneratorId",
-  "generatorIdToDeck",
-  "registerGeneratorIdAliases",
-  "clearGeneratorIdAliases",
-  "registerParamKeyAliases",
-  "clearParamKeyAliases",
-  "camelToSnake",
-  "snakeToCamel",
-  "paramKeyToCamel",
-  "parseBarSelector",
-  "barSelectorMatches",
-  "euclideanPattern",
-  "parseGenBlock",
-  "registerGenBlockDialect",
-  "clearGenBlockDialects",
-  "registerBuiltinMacros",
-  "clearBuiltinMacros",
-  "builtinMacros",
-  "lookupMacro",
-  "expandMacroBody",
-  "classifyLine",
-  "isKeyword",
-  "isInlineKeyword",
-  "isStepToken",
-  "registerHighlightKeywords",
-  "parseScaleRoot",
-  "scaleRootNames",
-  "scaleModeNames",
-  "scaleIntervals"
-]
+// The public surface is `src/index.tish` — read it, don't restate it. A second hand-maintained copy
+// of the export list drifts: an export added to the barrel would silently not reach `dist/deck.js`.
+const PUBLIC = readPublicExports(path.join(root, "src/index.tish"))
+
+/// Collect the names from every `export { a, b } from "./x.tish"` in the barrel module.
+function readPublicExports(indexPath) {
+  const src = fs.readFileSync(indexPath, "utf8")
+  const names = []
+  for (const block of src.matchAll(/export\s*\{([^}]*)\}\s*from/g)) {
+    for (const spec of block[1].split(",")) {
+      // `a as b` re-exports under `b`; a bare name exports itself.
+      const name = spec.trim().split(/\s+as\s+/).pop().trim()
+      if (name) names.push(name)
+    }
+  }
+  if (!names.length) {
+    console.error(`no exports found in ${indexPath}`)
+    process.exit(1)
+  }
+  return names
+}
 
 let src = fs.readFileSync(p, "utf8")
 // Drop trailing export lines (tish + any prior append).

@@ -1,0 +1,10 @@
+deck 1
+track MOS 6581 id c9 gen fm
+  mix gain 1
+track Bass id c3 gen fm * 2
+  mix gain 0.85
+track Pad id c4 gen fm * inf
+  mix gain 0.5
+track Lead id c5 gen mymacro cutoff 1200 wave saw
+  mix gain 0.7
+remove_track obsolete

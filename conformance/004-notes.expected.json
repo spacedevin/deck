@@ -1,0 +1,226 @@
+{
+  "program": {
+    "tplVersion": 1,
+    "bpm": null,
+    "tracks": [
+      {
+        "name": "Bass",
+        "id": "c3",
+        "generatorId": "fm",
+        "rawGenId": "fm",
+        "genParams": {},
+        "loopBars": 4,
+        "body": [
+          {
+            "lineNo": 3,
+            "tokens": [
+              "note",
+              "48",
+              "0.0",
+              "0.5",
+              "v",
+              "90"
+            ],
+            "raw": "note 48 0.0 0.5 v 90"
+          },
+          {
+            "lineNo": 4,
+            "tokens": [
+              "note",
+              "50",
+              "1.0",
+              "0.5",
+              "v",
+              "85",
+              "bar",
+              "even"
+            ],
+            "raw": "note 50 1.0 0.5 v 85 bar even"
+          },
+          {
+            "lineNo": 5,
+            "tokens": [
+              "note",
+              "52",
+              "2.0",
+              "0.5",
+              "v",
+              "80",
+              "p",
+              "0.8",
+              "r",
+              "2",
+              "n",
+              "-0.25",
+              "l",
+              "la"
+            ],
+            "raw": "note 52 2.0 0.5 v 80 p 0.8 r 2 n -0.25 l la"
+          },
+          {
+            "lineNo": 6,
+            "tokens": [
+              "note",
+              "55",
+              "3.0",
+              "0.5",
+              "v",
+              "75",
+              "bar",
+              "-n+2"
+            ],
+            "raw": "note 55 3.0 0.5 v 75 bar -n+2"
+          },
+          {
+            "lineNo": 7,
+            "tokens": [
+              "note",
+              "57",
+              "0.5",
+              "0.25",
+              "v",
+              "70",
+              "bar",
+              "0,2,3"
+            ],
+            "raw": "note 57 0.5 0.25 v 70 bar 0,2,3"
+          },
+          {
+            "lineNo": 8,
+            "tokens": [
+              "transpose",
+              "-12"
+            ],
+            "raw": "transpose -12"
+          },
+          {
+            "lineNo": 9,
+            "tokens": [
+              "notes_clear"
+            ],
+            "raw": "notes_clear"
+          }
+        ],
+        "genBlocks": []
+      }
+    ],
+    "removeTrackIds": [],
+    "macros": {},
+    "autos": [],
+    "masterMixTokens": null,
+    "actorMixRows": [],
+    "clipBlocks": [],
+    "sessionSceneCount": null,
+    "sessionSlots": [],
+    "song": null,
+    "follow": null,
+    "launchQuant": null,
+    "songSeed": null,
+    "xfade": null,
+    "mainDeck": null,
+    "swing": null,
+    "scaleRoot": null,
+    "scaleMode": null,
+    "deckMix": null,
+    "directives": [],
+    "hostStatements": {},
+    "errors": []
+  },
+  "trackBodies": [
+    {
+      "id": "c3",
+      "rows": [
+        {
+          "kind": "note",
+          "midi": 48,
+          "startBeat": 0,
+          "durBeats": 0.5,
+          "vel": 90,
+          "prob": null,
+          "ratchet": null,
+          "nudge": null,
+          "bar": null,
+          "lyric": null,
+          "lineNo": 3
+        },
+        {
+          "kind": "note",
+          "midi": 50,
+          "startBeat": 1,
+          "durBeats": 0.5,
+          "vel": 85,
+          "prob": null,
+          "ratchet": null,
+          "nudge": null,
+          "bar": {
+            "kind": "mod",
+            "a": 2,
+            "b": 0
+          },
+          "lyric": null,
+          "lineNo": 4
+        },
+        {
+          "kind": "note",
+          "midi": 52,
+          "startBeat": 2,
+          "durBeats": 0.5,
+          "vel": 80,
+          "prob": 0.8,
+          "ratchet": 2,
+          "nudge": -0.25,
+          "bar": null,
+          "lyric": "la",
+          "lineNo": 5
+        },
+        {
+          "kind": "note",
+          "midi": 55,
+          "startBeat": 3,
+          "durBeats": 0.5,
+          "vel": 75,
+          "prob": null,
+          "ratchet": null,
+          "nudge": null,
+          "bar": {
+            "kind": "first",
+            "b": 2
+          },
+          "lyric": null,
+          "lineNo": 6
+        },
+        {
+          "kind": "note",
+          "midi": 57,
+          "startBeat": 0.5,
+          "durBeats": 0.25,
+          "vel": 70,
+          "prob": null,
+          "ratchet": null,
+          "nudge": null,
+          "bar": {
+            "kind": "list",
+            "list": [
+              0,
+              2,
+              3
+            ]
+          },
+          "lyric": null,
+          "lineNo": 7
+        },
+        {
+          "kind": "transpose",
+          "semitones": -12,
+          "lineNo": 8
+        },
+        {
+          "kind": "notesClear",
+          "lineNo": 9
+        }
+      ],
+      "errors": []
+    }
+  ],
+  "clipBodies": []
+}

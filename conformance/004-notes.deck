@@ -1,0 +1,9 @@
+deck 1
+track Bass id c3 gen fm * 4
+  note 48 0.0 0.5 v 90
+  note 50 1.0 0.5 v 85 bar even
+  note 52 2.0 0.5 v 80 p 0.8 r 2 n -0.25 l la
+  note 55 3.0 0.5 v 75 bar -n+2
+  note 57 0.5 0.25 v 70 bar 0,2,3
+  transpose -12
+  notes_clear

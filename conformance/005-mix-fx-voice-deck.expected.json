@@ -1,0 +1,207 @@
+{
+  "program": {
+    "tplVersion": 1,
+    "bpm": null,
+    "tracks": [
+      {
+        "name": "Lead",
+        "id": "c4",
+        "generatorId": "fm",
+        "rawGenId": "fm",
+        "genParams": {},
+        "loopBars": null,
+        "body": [
+          {
+            "lineNo": 3,
+            "tokens": [
+              "mix",
+              "gain",
+              "0.9",
+              "pan",
+              "-0.2",
+              "mute",
+              "on",
+              "solo",
+              "0",
+              "eq_lo",
+              "1",
+              "eq_mid",
+              "2",
+              "eq_hi",
+              "3"
+            ],
+            "raw": "mix gain 0.9 pan -0.2 mute on solo 0 eq_lo 1 eq_mid 2 eq_hi 3"
+          },
+          {
+            "lineNo": 4,
+            "tokens": [
+              "fx",
+              "reverb",
+              "0.3",
+              "type",
+              "lowpass",
+              "cutoff",
+              "1200",
+              "res",
+              "0.4",
+              "lfo_rate",
+              "2",
+              "lfo_depth",
+              "0.5",
+              "drive",
+              "1.5"
+            ],
+            "raw": "fx reverb 0.3 type lowpass cutoff 1200 res 0.4 lfo_rate 2 lfo_depth 0.5 drive 1.5"
+          },
+          {
+            "lineNo": 5,
+            "tokens": [
+              "voice",
+              "octave",
+              "-1",
+              "arp",
+              "up",
+              "chord",
+              "maj",
+              "arprate",
+              "1/8",
+              "inversion",
+              "1",
+              "strum",
+              "0.02"
+            ],
+            "raw": "voice octave -1 arp up chord maj arprate 1/8 inversion 1 strum 0.02"
+          },
+          {
+            "lineNo": 6,
+            "tokens": [
+              "deck",
+              "A",
+              "slot",
+              "2"
+            ],
+            "raw": "deck A slot 2"
+          },
+          {
+            "lineNo": 7,
+            "tokens": [
+              "gen",
+              "wave_shape",
+              "saw",
+              "vol",
+              "15",
+              "pitch_drop",
+              "-12"
+            ],
+            "raw": "gen wave_shape saw vol 15 pitch_drop -12"
+          },
+          {
+            "lineNo": 8,
+            "tokens": [
+              "adsr",
+              "a",
+              "0",
+              "d",
+              "0.1",
+              "s",
+              "0.5",
+              "r",
+              "0.03"
+            ],
+            "raw": "adsr a 0 d 0.1 s 0.5 r 0.03"
+          }
+        ],
+        "genBlocks": []
+      }
+    ],
+    "removeTrackIds": [],
+    "macros": {},
+    "autos": [],
+    "masterMixTokens": null,
+    "actorMixRows": [],
+    "clipBlocks": [],
+    "sessionSceneCount": null,
+    "sessionSlots": [],
+    "song": null,
+    "follow": null,
+    "launchQuant": null,
+    "songSeed": null,
+    "xfade": null,
+    "mainDeck": null,
+    "swing": null,
+    "scaleRoot": null,
+    "scaleMode": null,
+    "deckMix": null,
+    "directives": [],
+    "hostStatements": {},
+    "errors": []
+  },
+  "trackBodies": [
+    {
+      "id": "c4",
+      "rows": [
+        {
+          "kind": "mix",
+          "gain": 0.9,
+          "pan": -0.2,
+          "mute": true,
+          "solo": false,
+          "eqLo": 1,
+          "eqMid": 2,
+          "eqHi": 3,
+          "lineNo": 3
+        },
+        {
+          "kind": "fx",
+          "params": {
+            "reverbSend": 0.3,
+            "filterType": "lowpass",
+            "cutoff": 1200,
+            "res": 0.4,
+            "lfoRate": 2,
+            "lfoDepth": 0.5,
+            "drive": 1.5
+          },
+          "lineNo": 4
+        },
+        {
+          "kind": "voice",
+          "params": {
+            "octave": -1,
+            "arp": "up",
+            "chord": "maj",
+            "arprate": "1/8",
+            "inversion": 1,
+            "strum": 0.02
+          },
+          "lineNo": 5
+        },
+        {
+          "kind": "deckRoute",
+          "lane": "A",
+          "slot": 2,
+          "lineNo": 6
+        },
+        {
+          "kind": "gen",
+          "params": {
+            "waveShape": "saw",
+            "vol": 15,
+            "pitchDrop": -12
+          },
+          "lineNo": 7
+        },
+        {
+          "kind": "adsr",
+          "a": 0,
+          "d": 0.1,
+          "s": 0.5,
+          "r": 0.03,
+          "lineNo": 8
+        }
+      ],
+      "errors": []
+    }
+  ],
+  "clipBodies": []
+}

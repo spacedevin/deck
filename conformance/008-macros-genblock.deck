@@ -1,0 +1,15 @@
+deck 1
+macro warmpad cutoff=800 res=0.3 label=soft
+  osc o1 sawtooth note
+  filter f1 lowpass q $res freq $cutoff
+  conn o1 f1 1
+end macro
+track Pad id c7 gen warmpad cutoff 1400
+  mix gain 0.6
+track Patch id c8 gen patch
+  gen_block patch
+    osc o1 sawtooth note
+    filter f1 lowpass q 4 freq 1800
+    conn f1 out 1
+  end gen_block
+  note 60 0 1 v 80

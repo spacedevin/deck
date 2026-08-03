@@ -1,0 +1,204 @@
+{
+  "program": {
+    "tplVersion": 1,
+    "bpm": null,
+    "tracks": [],
+    "removeTrackIds": [],
+    "macros": {},
+    "autos": [
+      {
+        "lineNo": 16,
+        "header": [
+          "master_gain"
+        ],
+        "points": [
+          {
+            "beat": 0,
+            "value": 0.85
+          },
+          {
+            "beat": 16,
+            "value": 0.9
+          }
+        ]
+      },
+      {
+        "lineNo": 19,
+        "header": [
+          "c0",
+          "gen",
+          "cutoff"
+        ],
+        "points": [
+          {
+            "beat": 0,
+            "value": 200
+          },
+          {
+            "beat": 8,
+            "value": 2000
+          }
+        ]
+      }
+    ],
+    "masterMixTokens": null,
+    "actorMixRows": [],
+    "clipBlocks": [
+      {
+        "clipId": "clip_kick_a",
+        "channelId": "c0",
+        "bars": 2,
+        "displayName": "Kick Pattern A",
+        "body": [
+          {
+            "lineNo": 6,
+            "tokens": [
+              "steps",
+              "x",
+              ".",
+              ".",
+              ".",
+              "x",
+              ".",
+              ".",
+              ".",
+              "x",
+              ".",
+              ".",
+              ".",
+              "x",
+              ".",
+              ".",
+              "."
+            ],
+            "raw": "steps x . . . x . . . x . . . x . . ."
+          },
+          {
+            "lineNo": 7,
+            "tokens": [
+              "note",
+              "36",
+              "0",
+              "1",
+              "v",
+              "100"
+            ],
+            "raw": "note 36 0 1 v 100"
+          },
+          {
+            "lineNo": 8,
+            "tokens": [
+              "loops",
+              "4"
+            ],
+            "raw": "loops 4"
+          }
+        ]
+      }
+    ],
+    "sessionSceneCount": 4,
+    "sessionSlots": [
+      {
+        "channelId": "c0",
+        "scene": 0,
+        "clipId": "clip_kick_a"
+      },
+      {
+        "channelId": "c1",
+        "scene": 1,
+        "clipId": ""
+      }
+    ],
+    "song": [
+      {
+        "scene": 0,
+        "repeat": 1
+      },
+      {
+        "scene": 1,
+        "repeat": 4
+      },
+      {
+        "scene": 2,
+        "repeat": 1
+      }
+    ],
+    "follow": [
+      {
+        "scene": 0,
+        "a": "next",
+        "wa": 1,
+        "b": null,
+        "wb": 0
+      },
+      {
+        "scene": 1,
+        "a": "jump",
+        "wa": 0.7,
+        "b": "stay",
+        "wb": 0.3
+      }
+    ],
+    "launchQuant": null,
+    "songSeed": null,
+    "xfade": null,
+    "mainDeck": null,
+    "swing": null,
+    "scaleRoot": null,
+    "scaleMode": null,
+    "deckMix": null,
+    "directives": [],
+    "hostStatements": {},
+    "errors": []
+  },
+  "trackBodies": [],
+  "clipBodies": [
+    {
+      "clipId": "clip_kick_a",
+      "rows": [
+        {
+          "kind": "steps",
+          "mode": "literal",
+          "on": [
+            true,
+            false,
+            false,
+            false,
+            true,
+            false,
+            false,
+            false,
+            true,
+            false,
+            false,
+            false,
+            true,
+            false,
+            false,
+            false
+          ],
+          "lineNo": 6
+        },
+        {
+          "kind": "note",
+          "midi": 36,
+          "startBeat": 0,
+          "durBeats": 1,
+          "vel": 100,
+          "prob": null,
+          "ratchet": null,
+          "nudge": null,
+          "bar": null,
+          "lyric": null,
+          "lineNo": 7
+        },
+        {
+          "kind": "loops",
+          "cap": 4,
+          "lineNo": 8
+        }
+      ],
+      "errors": []
+    }
+  ]
+}

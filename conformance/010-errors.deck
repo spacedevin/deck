@@ -1,0 +1,8 @@
+deck 1
+track
+zzz 1
+end gen_block
+remove_track
+clip bad channel c0 bars 0
+track Ok id c0 gen g * 0
+@

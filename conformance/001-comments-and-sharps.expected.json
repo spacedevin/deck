@@ -1,0 +1,74 @@
+{
+  "program": {
+    "tplVersion": 1,
+    "bpm": 120,
+    "tracks": [
+      {
+        "name": "C# Lead",
+        "id": "c1",
+        "generatorId": "fm",
+        "rawGenId": "fm",
+        "genParams": {},
+        "loopBars": null,
+        "body": [
+          {
+            "lineNo": 6,
+            "tokens": [
+              "note",
+              "61",
+              "0",
+              "1",
+              "v",
+              "100"
+            ],
+            "raw": "note 61 0 1 v 100"
+          }
+        ],
+        "genBlocks": []
+      }
+    ],
+    "removeTrackIds": [],
+    "macros": {},
+    "autos": [],
+    "masterMixTokens": null,
+    "actorMixRows": [],
+    "clipBlocks": [],
+    "sessionSceneCount": null,
+    "sessionSlots": [],
+    "song": null,
+    "follow": null,
+    "launchQuant": null,
+    "songSeed": null,
+    "xfade": null,
+    "mainDeck": null,
+    "swing": null,
+    "scaleRoot": 6,
+    "scaleMode": "minor",
+    "deckMix": null,
+    "directives": [],
+    "hostStatements": {},
+    "errors": []
+  },
+  "trackBodies": [
+    {
+      "id": "c1",
+      "rows": [
+        {
+          "kind": "note",
+          "midi": 61,
+          "startBeat": 0,
+          "durBeats": 1,
+          "vel": 100,
+          "prob": null,
+          "ratchet": null,
+          "nudge": null,
+          "bar": null,
+          "lyric": null,
+          "lineNo": 6
+        }
+      ],
+      "errors": []
+    }
+  ],
+  "clipBodies": []
+}
