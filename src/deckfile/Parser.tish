@@ -24,6 +24,29 @@ export fn tokenize(text) {
   return out
 }
 
+/// Cut a line at its comment.
+///
+/// A `#` only starts a comment at column 0 or after whitespace. Cutting at the FIRST `#` anywhere
+/// silently truncated any token containing one — `scale F# minor` became `scale F`, which then failed
+/// the 3-token form and set no scale at all, with no error. Sharps are first-class in the grammar
+/// (`scaleRootNames()` returns `C# D# F# G# A#`), and a track may legitimately be named `C#maj`.
+fn stripComment(raw) {
+  let i = 0
+  while (i < raw.length) {
+    if (raw.charAt(i) === "#") {
+      if (i === 0) {
+        return ""
+      }
+      let prev = raw.charAt(i - 1)
+      if (prev === " " || prev === "\t") {
+        return raw.substring(0, i)
+      }
+    }
+    i = i + 1
+  }
+  return raw
+}
+
 export fn isNumberToken(s) {
   if (s.length === 0) {
     return false
@@ -34,6 +57,7 @@ export fn isNumberToken(s) {
 
 export fn parseProgram(source) {
   let errors = []
+  let directives = []
   let tplVersion = 0
   let bpm = null
   let tracks = []
@@ -57,7 +81,7 @@ export fn parseProgram(source) {
   let currentClip = null
 
   let src = source
-  if ((src === null || src === undefined) || src === undefined) {
+  if (src === null) {
     src = ""
   }
   let raw = String(src).split("\n")
@@ -77,12 +101,7 @@ export fn parseProgram(source) {
 
   while (i < raw.length) {
     let fullLine = raw[i]
-    let hash = fullLine.indexOf("#")
-    let noCom = fullLine
-    if (hash >= 0) {
-      noCom = fullLine.substring(0, hash)
-    }
-    let line = noCom
+    let line = stripComment(fullLine)
     let a = 0
     while (a < line.length) {
       let c = line.charAt(a)
@@ -269,7 +288,7 @@ export fn parseProgram(source) {
         scaleMode = "off"
       } else if (toks.length >= 3) {
         let pr = parseScaleRoot(toks[1])
-        if (pr !== null && pr !== undefined) {
+        if (pr !== null) {
           scaleRoot = pr
           scaleMode = toks[2]
         }
@@ -300,8 +319,8 @@ export fn parseProgram(source) {
       }
       continue
     }
-    // `remove_track <id>` — delete a channel (incremental edit fragment; never appears in a full snapshot,
-    // since emitChannelTpl only emits surviving channels). Applied + ownership-gated in applyCoDjTplSource.
+    // `remove_track <id>` — delete a channel. An incremental edit fragment: a full snapshot emits only
+    // surviving channels, so this never appears in one. Hosts apply it (and gate it on ownership).
     if (head === "remove_track") {
       currentClip = null
       currentTrack = null
@@ -332,7 +351,18 @@ export fn parseProgram(source) {
       }
       continue
     }
-    if (head === "@" && toks.length >= 3 && toks[1] === "perf_step") {
+    // Control directives (`@ launch scene 2`, `@ transport play`, `@ cue`, `@ throw`, `@ fx`,
+    // `@ deck A cut on`) are part of the documented surface but are transient STREAM lines, not
+    // document state — so they are collected verbatim for the host to interpret rather than applied
+    // here. Previously only `@ perf_step` was recognized and every other directive fell through to
+    // "unexpected top-level: @", so a host streaming a mixed line feed through parseProgram got a
+    // spurious error per directive.
+    if (head === "@") {
+      if (toks.length >= 2) {
+        directives.push({ lineNo: i, verb: toks[1], tokens: toks.slice(2) })
+      } else {
+        errors.push({ line: i, msg: "@: expected a directive verb" })
+      }
       continue
     }
     if (head === "song") {
@@ -505,6 +535,7 @@ export fn parseProgram(source) {
     scaleRoot: scaleRoot,
     scaleMode: scaleMode,
     deckMix: deckMix,
+    directives: directives,
     errors: errors
   }
 }

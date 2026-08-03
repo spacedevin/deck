@@ -344,6 +344,28 @@ check("scale alone", parseProgram("scale\n").scaleRoot === null)
 // Macro numeric empty value stays string path: c= → empty string → Number("") is 0 which is nan? Number("")===0 actually
 // Covered via c=
 
+// ── Comments: `#` only starts one at column 0 or after whitespace ──────────────
+// Cutting at the first `#` anywhere truncated any token containing one, so `scale F# minor` became
+// `scale F` — no scale set, and no error to say so.
+check("sharp root survives", parseProgram("scale F# minor\n").scaleRoot === 6)
+check("sharp root mode", parseProgram("scale F# minor\n").scaleMode === "minor")
+check("sharp root == flat spelling", parseProgram("scale Gb minor\n").scaleRoot === 6)
+let sharpName = parseProgram("track C# Lead id c1 gen fm\n")
+check("sharp track name", sharpName.tracks[0].name === "C# Lead")
+check("sharp track parses", sharpName.errors.length === 0)
+check("trailing comment cut", parseProgram("bpm 120  # tempo\n").bpm === 120)
+check("column-0 comment", parseProgram("# note\nbpm 90\n").bpm === 90)
+check("column-0 comment no err", parseProgram("# note\nbpm 90\n").errors.length === 0)
+
+// ── Control directives are collected, not errors ──────────────────────────────
+let dir = parseProgram("@ transport play\n@ launch scene 2\n@ perf_step 16\nbpm 120\n")
+check("directives collected", dir.directives.length === 3)
+check("directive verb", dir.directives[0].verb === "transport")
+check("directive tokens", dir.directives[1].tokens.join(" ") === "scene 2")
+check("directives no errors", dir.errors.length === 0)
+check("directives do not block parse", dir.bpm === 120)
+check("bare @ errors", parseProgram("@\n").errors.some((e) => e.msg.includes("directive verb")))
+
 if (failed > 0) {
   console.log(failed + " FAILED")
   process.exit(1)

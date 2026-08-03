@@ -1,4 +1,7 @@
 // Generators / param keys are host-defined. Empty until registered.
+//
+// Absent-key reads are `null` on every Tish target (interpreter, JS, Rust) — `undefined` is not a
+// Tish value, so a lookup miss is tested with `=== null` alone.
 
 let deckToId = {}
 let idToDeck = {}
@@ -50,10 +53,10 @@ export fn clearParamKeyAliases() {
 export fn normalizeGeneratorId(tplId) {
   let s = String(tplId)
   let low = s.toLowerCase()
-  if (deckToId[s] !== null && deckToId[s] !== undefined) {
+  if (deckToId[s] !== null) {
     return deckToId[s]
   }
-  if (deckToId[low] !== null && deckToId[low] !== undefined) {
+  if (deckToId[low] !== null) {
     return deckToId[low]
   }
   return s
@@ -61,7 +64,7 @@ export fn normalizeGeneratorId(tplId) {
 
 export fn generatorIdToDeck(id) {
   let s = String(id)
-  if (idToDeck[s] !== null && idToDeck[s] !== undefined) {
+  if (idToDeck[s] !== null) {
     return idToDeck[s]
   }
   return s
@@ -98,7 +101,7 @@ export fn camelToSnake(s) {
 
 export fn paramKeyToCamel(key) {
   let s = String(key)
-  if (paramAliases[s] !== null && paramAliases[s] !== undefined) {
+  if (paramAliases[s] !== null) {
     return paramAliases[s]
   }
   if (s.indexOf("_") >= 0) {
