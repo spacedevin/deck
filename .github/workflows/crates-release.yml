@@ -1,0 +1,101 @@
+# Publish the `deckfile` Rust crate to crates.io when a GitHub release is promoted from prerelease
+# to full release — the Rust half of the same release that publishes @spacedevin/deck to npm.
+#
+# The crate is GENERATED from src/index.tish (see scripts/build-rust.mjs), so it is emitted here
+# rather than committed: one source, and the published crate cannot drift from the published npm
+# package because both come out of the same tag.
+#
+# AUTH: crates.io Trusted Publishing (OIDC, no long-lived token), matching npm-release.yml.
+# One-time setup on crates.io for `deckfile`: Settings > Trusted Publishing > GitHub Actions:
+#   Repository owner:  spacedevin
+#   Repository name:   deck
+#   Workflow filename: crates-release.yml
+#   Environment:       (leave blank)
+# Trusted Publishing must be configured before the FIRST publish; if the crate name is not yet
+# claimed, do the initial `cargo publish` locally, then wire OIDC and let CI own it from then on.
+
+name: Crates.io release
+
+on:
+  release:
+    types: [published, edited]
+  # Re-dispatch to recover a failed/throttled run. Publishing is idempotent below: a version already
+  # on crates.io is skipped rather than failing the job.
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to (re)publish, e.g. v1.0.0"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write # required for crates.io Trusted Publishing
+
+jobs:
+  publish:
+    name: Publish deckfile to crates.io
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.release.prerelease == false }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: refs/tags/${{ github.event.release.tag_name || inputs.tag }}
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Resolve version from the tag
+        id: version
+        run: |
+          TAG="${{ github.event.release.tag_name || inputs.tag }}"
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Skip if this version is already on crates.io
+        id: check
+        run: |
+          V="${{ steps.version.outputs.version }}"
+          if curl -sf "https://crates.io/api/v1/crates/deckfile/$V" -H 'User-Agent: deck-release' >/dev/null 2>&1; then
+            echo "already=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::deckfile@$V is already published — skipping."
+          else
+            echo "already=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # The repo dep is whatever the package pins; the rust-lib emit needs >= 3.2 (tishlang/tish#588).
+      # Pinned here rather than through the repo dep so `npm ci` above stays free to track its own range.
+      - name: Emit the crate
+        if: steps.check.outputs.already == 'false'
+        env:
+          DECKFILE_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          npm i -g "@tishlang/tish@^3.2"
+          TISH_BIN="$(command -v tish)" npm run build:rust
+
+      - name: Test the emitted crate
+        if: steps.check.outputs.already == 'false'
+        working-directory: crate
+        run: cargo test
+
+      - name: Authenticate to crates.io (Trusted Publishing)
+        if: steps.check.outputs.already == 'false'
+        uses: rust-lang/crates-io-auth-action@v1
+        id: auth
+
+      # --allow-dirty: `crate/` is generated and gitignored, so cargo sees it as untracked.
+      - name: Publish
+        if: steps.check.outputs.already == 'false'
+        working-directory: crate
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
+        run: cargo publish --allow-dirty

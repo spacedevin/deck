@@ -22,7 +22,11 @@ fs.rmSync(out, { recursive: true, force: true })
 // while that is still unreleased.
 const tish = process.env.TISH_BIN ?? "tish"
 try {
-  execFileSync(tish, ["build", "src/index.tish", "--target", "rust-lib", "-o", out], {
+  // `--feature ""` = no runtime capabilities. Omitting it inherits whatever the tish BINARY was
+  // built with (fs/http/process/regex/tty/ws), which drags tokio + reqwest + rustls into what is a
+  // pure text parser — a very expensive transitive dependency for a build-time proc-macro consumer.
+  // The empty set is also what keeps codegen from emitting feature-gated prelude imports.
+  execFileSync(tish, ["build", "src/index.tish", "--target", "rust-lib", "--feature", "", "-o", out], {
     cwd: root,
     stdio: "inherit"
   })
@@ -57,13 +61,26 @@ fs.copyFileSync(path.join(root, "rust/conformance.rs"), path.join(out, "tests/co
 fs.cpSync(path.join(root, "conformance"), path.join(out, "conformance"), { recursive: true })
 
 // Rewrite the generated manifest: real crate name, version tracking the npm package, and the
-// metadata crates.io needs. The emitter's `tishlang_runtime` dep line (path + version) is kept.
+// metadata crates.io needs.
+//
+// The runtime dep is rewritten to VERSION-ONLY. The emitter writes an absolute `path` to whichever
+// tish checkout produced the crate (`/Users/…/node_modules/@tishlang/tish/crates/tish_runtime`),
+// which resolves on exactly one machine — the same sibling-checkout trap that made tish-apple
+// unbuildable from a clone. A published crate cannot carry a path at all.
+//
+// The version must match the tish that GENERATED this crate, since the emitted code targets that
+// runtime's API. Override with DECKFILE_RUNTIME_VERSION when generating with a different tish.
+const RUNTIME_VERSION = process.env.DECKFILE_RUNTIME_VERSION ?? "3.2"
+// package.json's version is a placeholder that release CI overwrites from the tag, so the crate
+// takes its version from the same place — DECKFILE_VERSION — keeping the npm package and the crate
+// on one number per release.
+const CRATE_VERSION = process.env.DECKFILE_VERSION ?? pkg.version
 const manifestPath = path.join(out, "Cargo.toml")
 let manifest = fs.readFileSync(manifestPath, "utf8")
-const deps = manifest.slice(manifest.indexOf("[dependencies]"))
+const deps = `[dependencies]\ntishlang_runtime = "${RUNTIME_VERSION}"\n`
 manifest = `[package]
 name = "${CRATE_NAME}"
-version = "${pkg.version}"
+version = "${CRATE_VERSION}"
 edition = "2021"
 license = "${pkg.license}"
 description = "${pkg.description}"
@@ -84,4 +101,4 @@ ${deps}`
 fs.writeFileSync(manifestPath, manifest)
 
 const pubFns = (fs.readFileSync(libPath, "utf8").match(/^pub fn /gm) ?? []).length
-console.log(`crate: ${CRATE_NAME} v${pkg.version} — ${pubFns} exported fns + typed facade`)
+console.log(`crate: ${CRATE_NAME} v${CRATE_VERSION} — ${pubFns} exported fns + typed facade`)
