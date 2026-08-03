@@ -72,15 +72,17 @@ jobs:
             echo "already=false" >> "$GITHUB_OUTPUT"
           fi
 
-      # The repo dep is whatever the package pins; the rust-lib emit needs >= 3.2 (tishlang/tish#588).
-      # Pinned here rather than through the repo dep so `npm ci` above stays free to track its own range.
+      # Uses the tish from `npm ci` above — the package's own dev dependency pins >= 3.2, which is
+      # where the rust-lib emit landed (tishlang/tish#588). One source of truth for the compiler
+      # version, so a released crate is always emitted by the tish the package declares.
       - name: Emit the crate
         if: steps.check.outputs.already == 'false'
         env:
           DECKFILE_VERSION: ${{ steps.version.outputs.version }}
         run: |
-          npm i -g "@tishlang/tish@^3.2"
-          TISH_BIN="$(command -v tish)" npm run build:rust
+          export PATH="$PWD/node_modules/.bin:$PATH"
+          tish -V
+          npm run build:rust
 
       - name: Test the emitted crate
         if: steps.check.outputs.already == 'false'

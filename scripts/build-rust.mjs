@@ -18,8 +18,9 @@ const CRATE_NAME = "deckfile"
 
 fs.rmSync(out, { recursive: true, force: true })
 
-// `--target rust-lib` needs a tish that has it (tishlang/tish#588). Point TISH_BIN at a local build
-// while that is still unreleased.
+// `--target rust-lib` needs @tishlang/tish >= 3.2 (tishlang/tish#588), which is the package's own
+// dependency floor — so the dev-dependency binary on PATH is the right one by default. TISH_BIN
+// stays available for testing an unreleased compiler build.
 const tish = process.env.TISH_BIN ?? "tish"
 try {
   // `--feature ""` = no runtime capabilities. Omitting it inherits whatever the tish BINARY was
@@ -33,9 +34,9 @@ try {
 } catch (e) {
   console.error(
     `\n\`${tish} build --target rust-lib\` failed.\n` +
-      `Requires @tishlang/tish with the rust-lib emit (tishlang/tish#588).\n` +
-      `Set TISH_BIN to a build that has it, e.g.\n` +
-      `  TISH_BIN=../tish/target/debug/tish npm run build:rust\n`
+      `Requires @tishlang/tish >= 3.2 (the rust-lib emit, tishlang/tish#588).\n` +
+      `Run \`npm ci\` so the dev dependency is on PATH, or point TISH_BIN at a build that has it:\n` +
+      `  TISH_BIN=../tish/target/release/tish npm run build:rust\n`
   )
   process.exit(1)
 }
