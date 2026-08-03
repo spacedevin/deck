@@ -89,4 +89,6 @@ any restricted host (via a profile). It is what makes drift a test failure rathe
 
 Branch % is lower (~60%) because the Tish→JS emit adds many `?? null` / typeof guards that are defensive noise, not language logic. Line coverage is the gate in CI.
 
-MIT
+## License
+
+Pay It Forward (PIF) — see [LICENSE](LICENSE). Same license as [tish](https://github.com/tishlang/tish).

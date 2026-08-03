@@ -55,6 +55,80 @@ fs.appendFileSync(
   "\n// ── Typed facade (hand-written; see the deck repo's rust/facade.rs) ───────────\npub mod facade;\npub use facade::{parse, BarSelector, BodyRow, Clip, DeckProgram, Directive, GenBlock, Params, ParseError, Track};\n"
 )
 
+
+/// Rust-facing README. Deliberately not the npm one: a Rust consumer needs `parse()` and the typed
+/// rows, not `npm install` and the Tish import path.
+function crateReadme() {
+  return `# deckfile
+
+Parser for the **\`.deck\`** patch language — the Rust target of [@spacedevin/deck][npm].
+
+\`\`\`toml
+[dependencies]
+deckfile = "${CRATE_VERSION}"
+\`\`\`
+
+\`\`\`rust
+let program = deckfile::parse(source);
+
+println!("{:?} bpm", program.bpm);
+for track in &program.tracks {
+    println!("{} ({}) — {} bars", track.name, track.generator_id, track.loop_bars.unwrap_or(1));
+    for row in &track.body {
+        match row {
+            deckfile::BodyRow::Note { midi, start_beat, dur_beats, .. } => { /* … */ }
+            deckfile::BodyRow::Steps { on, .. } => { /* … */ }
+            _ => {}
+        }
+    }
+}
+\`\`\`
+
+\`parse\` never fails: malformed lines land in \`program.errors\`, because a streaming host has to be
+able to parse a partial program.
+
+## Generated — one source, three targets
+
+Everything here except the typed facade is **generated** from the same \`src/index.tish\` that
+produces the npm package, using \`tish build --target rust-lib\`. Rust, JavaScript and Tish consumers
+therefore parse \`.deck\` identically by construction rather than by discipline, and a
+[shared conformance corpus][conf] — the same \`.deck\` inputs with the same expected parses — is run
+against every target on every change.
+
+Don't send patches here; fix the language upstream in [spacedevin/deck][repo].
+
+## Scope
+
+Tokenize · parse to an AST · track/clip body lines as typed rows · format helpers · scale vocabulary ·
+bar selectors · Euclidean fill · highlight classification · host registries.
+
+**Not** included, by design: applying the AST to a project model, emitting \`.deck\` text, audio
+engines, instrument catalogs. Those belong to the host — see [HOST.md][host].
+
+Hosts extend the language through registries rather than forking it:
+\`registerTopLevelStatement\`, \`registerBodyLineDialect\`, \`registerGenBlockDialect\`,
+\`registerGeneratorIdAliases\`, \`registerBuiltinMacros\`.
+
+## Docs
+
+- [Language grammar][grammar] — the canonical \`.deck\` surface
+- [Host integration][host] — boot order and what a host implements
+- [gen_block extensions][ext] — dialect registration
+
+## License
+
+Pay It Forward (PIF) — see LICENSE. Same license as [tish][tish].
+
+[npm]: https://www.npmjs.com/package/@spacedevin/deck
+[repo]: https://github.com/spacedevin/deck
+[conf]: https://github.com/spacedevin/deck/tree/main/conformance
+[grammar]: https://github.com/spacedevin/deck/blob/main/docs/DECK_GRAMMAR.md
+[host]: https://github.com/spacedevin/deck/blob/main/docs/HOST.md
+[ext]: https://github.com/spacedevin/deck/blob/main/docs/DECK_EXTENSION.md
+[tish]: https://github.com/tishlang/tish
+`
+}
+
 // The crate runs the SAME corpus as the JS build — that is the whole point of emitting it from one
 // source. Ship the fixtures inside the crate so `cargo test` works from a published copy too.
 fs.mkdirSync(path.join(out, "tests"), { recursive: true })
@@ -79,11 +153,14 @@ const CRATE_VERSION = process.env.DECKFILE_VERSION ?? pkg.version
 const manifestPath = path.join(out, "Cargo.toml")
 let manifest = fs.readFileSync(manifestPath, "utf8")
 const deps = `[dependencies]\ntishlang_runtime = "${RUNTIME_VERSION}"\n`
+// `license-file`, not `license`: PIF is not an SPDX identifier, so an SPDX field would either be
+// rejected or misreport the terms. Same approach tish itself uses.
 manifest = `[package]
 name = "${CRATE_NAME}"
 version = "${CRATE_VERSION}"
 edition = "2021"
-license = "${pkg.license}"
+license-file = "LICENSE"
+readme = "README.md"
 description = "${pkg.description}"
 repository = "${pkg.repository.url}"
 keywords = ["deck", "tish", "parser", "music"]
@@ -100,6 +177,11 @@ path = "src/lib.rs"
 
 ${deps}`
 fs.writeFileSync(manifestPath, manifest)
+
+// A published crate needs its own LICENSE and README in the package — crates.io renders the README
+// on the crate page and cannot reach back into the repo for either.
+fs.copyFileSync(path.join(root, "LICENSE"), path.join(out, "LICENSE"))
+fs.writeFileSync(path.join(out, "README.md"), crateReadme())
 
 const pubFns = (fs.readFileSync(libPath, "utf8").match(/^pub fn /gm) ?? []).length
 console.log(`crate: ${CRATE_NAME} v${CRATE_VERSION} — ${pubFns} exported fns + typed facade`)
