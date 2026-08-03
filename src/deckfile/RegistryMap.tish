@@ -1,24 +1,68 @@
-// deck generator ids and param aliases → project camelCase.
+// Generators / param keys are host-defined. Empty until registered.
+
+let deckToId = {}
+let idToDeck = {}
+let paramAliases = {}
+
+export fn registerGeneratorIdAliases(forward, emit) {
+  if (forward) {
+    let keys = Object.keys(forward)
+    let i = 0
+    while (i < keys.length) {
+      let k = keys[i]
+      deckToId[String(k)] = forward[k]
+      i = i + 1
+    }
+  }
+  if (emit) {
+    let ekeys = Object.keys(emit)
+    let j = 0
+    while (j < ekeys.length) {
+      let ek = ekeys[j]
+      idToDeck[String(ek)] = emit[ek]
+      j = j + 1
+    }
+  }
+}
+
+export fn clearGeneratorIdAliases() {
+  deckToId = {}
+  idToDeck = {}
+}
+
+export fn registerParamKeyAliases(forward) {
+  if (!forward) {
+    return
+  }
+  let keys = Object.keys(forward)
+  let i = 0
+  while (i < keys.length) {
+    let k = keys[i]
+    paramAliases[String(k)] = forward[k]
+    i = i + 1
+  }
+}
+
+export fn clearParamKeyAliases() {
+  paramAliases = {}
+}
 
 export fn normalizeGeneratorId(tplId) {
-  let s = tplId
-  if (s === "noise_burst" || s === "noiseburst") {
-    return "noiseBurst"
+  let s = String(tplId)
+  let low = s.toLowerCase()
+  if (deckToId[s] !== null && deckToId[s] !== undefined) {
+    return deckToId[s]
   }
-  if (s === "fm" || s === "fm_tone" || s === "fmtone") {
-    return "fmTone"
+  if (deckToId[low] !== null && deckToId[low] !== undefined) {
+    return deckToId[low]
   }
-  if (s === "basic_osc" || s === "basicosc" || s === "osc") {
-    return "basicOsc"
-  }
-  if (s === "matrix_fm" || s === "matrixfm") {
-    return "matrixFm"
-  }
-  if (s === "drum" || s === "drum_synth" || s === "drumsynth") {
-    return "drumSynth"
-  }
-  if (s === "patch" || s === "modular" || s === "synth") {
-    return "patch"
+  return s
+}
+
+export fn generatorIdToDeck(id) {
+  let s = String(id)
+  if (idToDeck[s] !== null && idToDeck[s] !== undefined) {
+    return idToDeck[s]
   }
   return s
 }
@@ -53,20 +97,12 @@ export fn camelToSnake(s) {
 }
 
 export fn paramKeyToCamel(key) {
-  if (key === "pitch_follow") {
-    return "pitchFollow"
+  let s = String(key)
+  if (paramAliases[s] !== null && paramAliases[s] !== undefined) {
+    return paramAliases[s]
   }
-  if (key === "mod_index") {
-    return "modIndex"
+  if (s.indexOf("_") >= 0) {
+    return snakeToCamel(s)
   }
-  if (key === "carrier_wave") {
-    return "carrierWave"
-  }
-  if (key === "mod_wave") {
-    return "modWave"
-  }
-  if (key === "filter_cutoff") {
-    return "filterCutoff"
-  }
-  return key
+  return s
 }

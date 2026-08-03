@@ -1,5 +1,0 @@
-// Param cloning for session/clip sync — kept free of app persistence (localStorage).
-
-export fn deepCloneParams(obj) {
-  return JSON.parse(JSON.stringify(obj))
-}

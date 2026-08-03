@@ -2,7 +2,7 @@
   "name": "@spacedevin/deck",
   "version": "0.1.0",
   "type": "module",
-  "description": "Streamable .deck patch language — parse, apply, emit, co-DJ skills/merge",
+  "description": ".deck language only — tokenize, parse, format, registries, highlight classify",
   "license": "MIT",
   "author": "spacedevin",
   "repository": {
@@ -24,43 +24,14 @@
       "require": "./dist/deck.js",
       "default": "./dist/deck.js"
     },
-    "./parser": {
-      "tish": "./src/deckfile/Parser.tish",
-      "default": "./src/deckfile/Parser.tish"
-    },
-    "./apply": {
-      "tish": "./src/deckfile/Apply.tish",
-      "default": "./src/deckfile/Apply.tish"
-    },
-    "./emit": {
-      "tish": "./src/deckfile/Emit.tish",
-      "default": "./src/deckfile/Emit.tish"
-    },
-    "./stream": {
-      "tish": "./src/deckfile/Stream.tish",
-      "default": "./src/deckfile/Stream.tish"
-    },
-    "./skills-gate": {
-      "tish": "./src/codj/Skills.tish",
-      "default": "./src/codj/Skills.tish"
-    },
-    "./merge": {
-      "tish": "./src/codj/Merge.tish",
-      "default": "./src/codj/Merge.tish"
-    },
     "./grammar": "./docs/DECK_GRAMMAR.md",
-    "./agent-grammar": "./docs/DECK_AGENT_GRAMMAR.md",
-    "./schema": "./schema/project-v2.json",
-    "./skills/*": "./skills/*",
+    "./extension": "./docs/DECK_EXTENSION.md",
     "./package.json": "./package.json"
   },
   "files": [
     "src/",
     "dist/",
     "docs/",
-    "schema/",
-    "skills/",
-    "projects/",
     "README.md",
     "LICENSE"
   ],
@@ -76,11 +47,10 @@
   },
   "keywords": [
     "deck",
-    "deckard",
     "tish",
-    "live-coding",
-    "daw",
-    "parser"
+    "parser",
+    "patch-language",
+    "live-coding"
   ],
   "peerDependencies": {
     "@tishlang/tish": ">=2.43.0"

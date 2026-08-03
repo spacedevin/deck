@@ -1,5 +1,4 @@
-// Line-level classification for deck syntax and step highlighting (no full parse).
-
+// Line-level classification for core deck syntax (no dialect / instrument catalogs).
 import { tokenize } from './Parser.tish'
 
 let TOP_KEYS = {}
@@ -16,36 +15,60 @@ TOP_KEYS["follow"] = true
 TOP_KEYS["xfade"] = true
 TOP_KEYS["main_deck"] = true
 TOP_KEYS["swing"] = true
+TOP_KEYS["scale"] = true
+TOP_KEYS["deck_mix"] = true
+TOP_KEYS["remove_track"] = true
+TOP_KEYS["session_scenes"] = true
+TOP_KEYS["session_slot"] = true
+TOP_KEYS["clip"] = true
+TOP_KEYS["master_mix"] = true
+TOP_KEYS["actor_mix"] = true
+TOP_KEYS["end"] = true
 
+// Track / clip body heads that are core language (Apply interprets; gen_block lines stay opaque here).
 let BODY_KEYS = {}
 BODY_KEYS["mix"] = true
 BODY_KEYS["steps"] = true
 BODY_KEYS["note"] = true
-BODY_KEYS["noise"] = true
-BODY_KEYS["fm"] = true
-BODY_KEYS["osc"] = true
 BODY_KEYS["adsr"] = true
 BODY_KEYS["transpose"] = true
 BODY_KEYS["loops"] = true
 BODY_KEYS["gen_block"] = true
 BODY_KEYS["end"] = true
 BODY_KEYS["step_pitch"] = true
+BODY_KEYS["step_vel"] = true
+BODY_KEYS["step_prob"] = true
+BODY_KEYS["step_ratchet"] = true
+BODY_KEYS["step_nudge"] = true
 BODY_KEYS["voice"] = true
 BODY_KEYS["fx"] = true
 BODY_KEYS["deck"] = true
 BODY_KEYS["gen"] = true
-// Patch (gen_block patch) node + wiring + envelope keywords.
-BODY_KEYS["conn"] = true
-BODY_KEYS["env"] = true
-BODY_KEYS["filter"] = true
-BODY_KEYS["shaper"] = true
-BODY_KEYS["gain"] = true
-BODY_KEYS["dur"] = true
 
-// Mid-line modifier keywords (not line-leading): highlighted wherever they appear.
 let INLINE_KEYS = {}
 INLINE_KEYS["bar"] = true
 INLINE_KEYS["v"] = true
+
+fn addHighlightKeys(map, arr) {
+  if (!arr) {
+    return
+  }
+  let i = 0
+  while (i < arr.length) {
+    map[String(arr[i])] = true
+    i = i + 1
+  }
+}
+
+/// Host dialects may add extra keyword sets: { top?: string[], body?: string[], inline?: string[] }
+export fn registerHighlightKeywords(extra) {
+  if (!extra) {
+    return
+  }
+  addHighlightKeys(TOP_KEYS, extra.top)
+  addHighlightKeys(BODY_KEYS, extra.body)
+  addHighlightKeys(INLINE_KEYS, extra.inline)
+}
 
 export fn isKeyword(s) {
   return TOP_KEYS[s] === true || BODY_KEYS[s] === true
@@ -59,7 +82,6 @@ export fn isStepToken(s) {
   return s === "x" || s === "X" || s === "." || s === "1" || s === "0"
 }
 
-// Returns { kind: "steps" | "note" | "keyword" | "plain", tokens: [...], stepIndices: [0..15] for steps lines }.
 export fn classifyLine(line) {
   if ((line === null || line === undefined)) {
     return { kind: "plain", tokens: [], stepIndices: [] }

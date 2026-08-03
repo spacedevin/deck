@@ -1,5 +1,5 @@
 import { normalizeGeneratorId } from './RegistryMap.tish'
-import { parseScaleRoot } from '../model/Scale.tish'
+import { parseScaleRoot } from '../ScaleRoot.tish'
 
 export fn tokenize(text) {
   let t = text.trim()

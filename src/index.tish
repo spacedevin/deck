@@ -1,22 +1,38 @@
-// @spacedevin/deck — public API.
+// @spacedevin/deck — .deck language only.
+// Host registers generator ids, param keys, macros, and gen_block dialects.
 
 export { tokenize, isNumberToken, parseProgram } from "./deckfile/Parser.tish"
-export { applyTplSource, applyParsed, findChannelById } from "./deckfile/Apply.tish"
-export { emitProject, emitLivePlayback, deckMixLine } from "./deckfile/Emit.tish"
-export { createTplLineStream, tplLineStreamPush } from "./deckfile/Stream.tish"
-export { parseGenBlock } from "./deckfile/TplExtension.tish"
-export { builtinMacros, lookupMacro, expandMacroBody } from "./deckfile/Macros.tish"
-export { coDjLineAllowedForSkills, skillIdsAllowMaster, hasSkill } from "./codj/Skills.tish"
-export { applyCoDjTplSource, actorMayEditTrack, laneCanMaster } from "./codj/Merge.tish"
-export { ensureCoDjMeta } from "./codj/CoDjMeta.tish"
+export { formatTplBeat, formatTplFloat } from "./deckfile/Format.tish"
 export {
-  makeStep,
-  makeSteps16,
-  makeChannel,
-  emptyProjectShell,
-  defaultParamsForGeneratorId,
-  projectToJson,
-  projectFromJson
-} from "./model/Project.tish"
-export { loadProjectFromTpl, loadDefaultDeckardProject } from "./model/ProjectLoad.tish"
-export { generatorCatalog, normalizeBasicOscWaveform } from "./generators/Defaults.tish"
+  normalizeGeneratorId,
+  generatorIdToDeck,
+  registerGeneratorIdAliases,
+  clearGeneratorIdAliases,
+  registerParamKeyAliases,
+  clearParamKeyAliases,
+  camelToSnake,
+  snakeToCamel,
+  paramKeyToCamel
+} from "./deckfile/RegistryMap.tish"
+export { parseBarSelector, barSelectorMatches } from "./deckfile/BarSelector.tish"
+export { euclideanPattern } from "./deckfile/Euclidean.tish"
+export {
+  parseGenBlock,
+  registerGenBlockDialect,
+  clearGenBlockDialects
+} from "./deckfile/GenBlock.tish"
+export {
+  registerBuiltinMacros,
+  clearBuiltinMacros,
+  builtinMacros,
+  lookupMacro,
+  expandMacroBody
+} from "./deckfile/Macros.tish"
+export {
+  classifyLine,
+  isKeyword,
+  isInlineKeyword,
+  isStepToken,
+  registerHighlightKeywords
+} from "./deckfile/Highlight.tish"
+export { parseScaleRoot, scaleRootNames, scaleModeNames, scaleIntervals } from "./ScaleRoot.tish"

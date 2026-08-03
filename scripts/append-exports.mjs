@@ -1,57 +1,77 @@
 #!/usr/bin/env node
-/** Append ESM named exports to tish-compiled bundles (tish build does not emit export lines). */
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-
-const bundles = [
-  {
-    file: "dist/deck.js",
-    names: [
-      "tokenize",
-      "isNumberToken",
-      "parseProgram",
-      "applyTplSource",
-      "applyParsed",
-      "findChannelById",
-      "emitProject",
-      "emitLivePlayback",
-      "deckMixLine",
-      "createTplLineStream",
-      "tplLineStreamPush",
-      "parseGenBlock",
-      "builtinMacros",
-      "lookupMacro",
-      "expandMacroBody",
-      "coDjLineAllowedForSkills",
-      "skillIdsAllowMaster",
-      "hasSkill",
-      "applyCoDjTplSource",
-      "actorMayEditTrack",
-      "laneCanMaster",
-      "ensureCoDjMeta",
-      "makeStep",
-      "makeSteps16",
-      "makeChannel",
-      "emptyProjectShell",
-      "defaultParamsForGeneratorId",
-      "projectToJson",
-      "projectFromJson",
-      "loadProjectFromTpl",
-      "loadDefaultDeckardProject",
-      "generatorCatalog",
-      "normalizeBasicOscWaveform",
-    ],
-  },
+const names = [
+  "tokenize",
+  "isNumberToken",
+  "parseProgram",
+  "formatTplBeat",
+  "formatTplFloat",
+  "normalizeGeneratorId",
+  "generatorIdToDeck",
+  "registerGeneratorIdAliases",
+  "clearGeneratorIdAliases",
+  "camelToSnake",
+  "snakeToCamel",
+  "paramKeyToCamel",
+  "parseBarSelector",
+  "barSelectorMatches",
+  "euclideanPattern",
+  "mixParamFromTpl",
+  "mixParamToTpl",
+  "isChannelMixParam",
+  "isMasterMixParam",
+  "isActorMixParam",
+  "parseGenBlock",
+  "parsePatchGraph",
+  "parseMatrixFmGraph",
+  "defaultMatrixFmRawLines",
+  "normalizePatchFilterType",
+  "patchGraphToLines",
+  "syncPatchSpecFromGraph",
+  "defaultPatchRawLines",
+  "addPatchNode",
+  "removePatchNode",
+  "addPatchConn",
+  "addPatchConnFrom",
+  "addPatchConnTo",
+  "removePatchConnAt",
+  "addPatchEnv",
+  "removePatchEnvAt",
+  "addPatchEnvSeg",
+  "removePatchEnvSegAt",
+  "patchSignalStages",
+  "sortedStringKeys",
+  "matrixFmGraphToLines",
+  "syncMatrixFmSpecFromGraph",
+  "matrixFmNextOpId",
+  "matrixFmNextFilterId",
+  "ensureMatrixFmOpEnv",
+  "ensureMatrixFmFilterEnv",
+  "addMatrixFmOperator",
+  "removeMatrixFmOperator",
+  "addMatrixFmFilter",
+  "removeMatrixFmFilter",
+  "findModAmount",
+  "setModAmount",
+  "addMatrixFmRoute",
+  "removeMatrixFmRouteAt",
+  "builtinMacros",
+  "lookupMacro",
+  "expandMacroBody",
+  "classifyLine",
+  "isKeyword",
+  "isInlineKeyword",
+  "isStepToken",
+  "tplDocumentToHighlightHtml",
+  "parseScaleRoot",
+  "scaleRootNames",
+  "scaleModeNames",
+  "scaleIntervals",
+  "normalizeBasicOscWaveform"
 ];
-
-for (const { file, names } of bundles) {
-  const p = path.join(root, file);
-  if (!fs.existsSync(p)) {
-    console.error(`missing ${file} — run tish build first`);
-    process.exit(1);
-  }
-  fs.appendFileSync(p, `\nexport { ${names.join(", ")} };\n`);
-}
+const p = path.join(root, "dist/deck.js");
+if (!fs.existsSync(p)) { console.error("missing dist/deck.js"); process.exit(1); }
+fs.appendFileSync(p, `\nexport { ${names.join(", ")} };\n`);

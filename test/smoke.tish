@@ -1,4 +1,17 @@
-import { loadProjectFromTpl, emitProject, parseProgram, coDjLineAllowedForSkills } from "../src/index.tish"
+import {
+  parseProgram,
+  tokenize,
+  parseScaleRoot,
+  normalizeGeneratorId,
+  registerGeneratorIdAliases,
+  clearGeneratorIdAliases,
+  clearGenBlockDialects,
+  registerGenBlockDialect,
+  parseGenBlock,
+  generatorIdToDeck,
+  formatTplFloat,
+  isKeyword
+} from "../src/index.tish"
 
 let failed = 0
 fn check(name, cond) {
@@ -10,28 +23,29 @@ fn check(name, cond) {
   }
 }
 
-let src = "deck 1\nbpm 128\ntrack kick id c0 gen noise_burst\n  steps x . . . x . . . x . . . x . . .\n"
-let r = loadProjectFromTpl(src)
-if (r.errors && r.errors.length > 0) {
-  console.log("errors:", JSON.stringify(r.errors))
+fn matrixDialect(generatorId, lines) {
+  return { kind: "matrixFm", tplHeaderId: generatorId, version: 2, raw: lines, graph: { ops: {} } }
 }
-check("load: no errors", !r.errors || r.errors.length === 0)
-check("load: bpm", r.project.bpm === 128)
-check("load: one channel", r.project.channels.length === 1)
-check("load: channel id", r.project.channels[0].id === "c0")
-check("load: steps on", r.project.channels[0].steps[0].on === true)
 
-let out = emitProject(r.project)
-check("emit: has deck header", out.indexOf("deck 1") >= 0)
-check("emit: has bpm", out.indexOf("bpm 128") >= 0)
-check("emit: has track", out.indexOf("track kick") >= 0)
+clearGeneratorIdAliases()
+clearGenBlockDialects()
+check("unregistered id passthrough", normalizeGeneratorId("noise_burst") === "noise_burst")
+check("parseGenBlock raw dialect-less", parseGenBlock("matrix_fm", ["op 1"]).kind === "matrix_fm")
+check("core highlight has scale", isKeyword("scale") === true)
+check("core highlight lacks patch dialect", isKeyword("conn") !== true)
 
+registerGeneratorIdAliases({ matrix_fm: "matrixFm" }, { matrixFm: "matrix_fm" })
+registerGenBlockDialect(["matrixFm", "matrix_fm"], matrixDialect)
+check("registered dialect", parseGenBlock("matrix_fm", ["op 1"]).kind === "matrixFm")
+check("registered emit", generatorIdToDeck("matrixFm") === "matrix_fm")
+
+let src = "deck 1\nbpm 128\nscale C major\ntrack kick id c0 gen noise_burst\n  steps x . . .\n"
 let parsed = parseProgram(src)
-check("parseProgram: ok", parsed !== null)
-
-check("skills: bpm needs master", coDjLineAllowedForSkills("bpm 120", ["pattern_steps"]) === false)
-check("skills: master allows bpm", coDjLineAllowedForSkills("bpm 120", ["master_mixer"]) === true)
-check("skills: steps ok", coDjLineAllowedForSkills("steps x...", ["pattern_steps"]) === true)
+check("parseProgram", parsed !== null && typeof parsed === "object")
+check("bpm", parsed.bpm === 128)
+check("tokenize", tokenize("bpm 120").length >= 2)
+check("parseScaleRoot", parseScaleRoot("C") === 0)
+check("formatTplFloat", typeof formatTplFloat(1.5) === "string")
 
 if (failed > 0) {
   console.log(failed + " FAILED")

@@ -1,0 +1,45 @@
+// gen_block parse is host-extensible. Core language only stores raw lines until a dialect is registered.
+import { normalizeGeneratorId } from "./RegistryMap.tish"
+
+let dialects = {}
+
+/// Register a dialect under one or more ids (deck spellings and/or host-normalized ids).
+/// `parseFn(generatorId, lines) -> generatorSpec`
+export fn registerGenBlockDialect(ids, parseFn) {
+  if (!parseFn) {
+    return
+  }
+  let list = ids
+  if (typeof ids === "string") {
+    list = [ids]
+  }
+  if (!list) {
+    return
+  }
+  let i = 0
+  while (i < list.length) {
+    dialects[String(list[i])] = parseFn
+    dialects[String(list[i]).toLowerCase()] = parseFn
+    i = i + 1
+  }
+}
+
+export fn clearGenBlockDialects() {
+  dialects = {}
+}
+
+export fn parseGenBlock(generatorId, lines) {
+  let tplHeaderId = generatorId
+  let nid = normalizeGeneratorId(generatorId)
+  let handler = dialects[nid]
+  if (!handler) {
+    handler = dialects[String(generatorId)]
+  }
+  if (!handler) {
+    handler = dialects[String(generatorId).toLowerCase()]
+  }
+  if (handler) {
+    return handler(generatorId, lines)
+  }
+  return { kind: nid, tplHeaderId: tplHeaderId, version: 1, raw: lines }
+}

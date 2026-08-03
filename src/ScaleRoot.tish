@@ -1,8 +1,5 @@
-// SCALE LOCK (live key constraint). A project-global { scaleRoot: 0..11 pitch-class, scaleMode: name } folds
-// every triggered melodic pitch onto the chosen scale at play time — change the key on the fly and the whole
-// session conforms instantly. It's a pure pitch transform (no audio state), so co-DJ peers snap identically.
+// Scale root / mode tokens for the deck `scale` header (language only).
 
-// Ascending pitch-class sets (semitones from the root). "chromatic"/off = no constraint.
 export fn scaleIntervals(mode) {
   if (mode === "major" || mode === "ionian") {
     return [0, 2, 4, 5, 7, 9, 11]
@@ -44,12 +41,12 @@ export fn scaleIntervals(mode) {
   return [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
 }
 
-// The 12 note names used by the `scale <root> <mode>` grammar + the UI picker. Index = pitch class.
+// Note names for `scale <root> <mode>`. Index = pitch class.
 export fn scaleRootNames() {
   return ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
 }
 
-// The modes offered in the UI (and accepted by the parser, plus the aliases above).
+// Modes accepted by the `scale` header (plus aliases in scaleIntervals).
 export fn scaleModeNames() {
   return [
     "major",
@@ -107,66 +104,4 @@ export fn parseScaleRoot(tok) {
     base = base - 1
   }
   return (base + 12) % 12
-}
-
-// Snap one MIDI pitch onto the scale (nearest degree; ties round down so the key's character holds). A pitch
-// already in the scale is returned unchanged; octaves are preserved.
-export fn snapToScale(pitch, root, mode) {
-  if ((root === null || root === undefined) || root === undefined) {
-    return pitch
-  }
-  let ivs = scaleIntervals(mode)
-  if (ivs.length >= 12) {
-    return pitch
-  }
-  let p = Math.round(pitch)
-  let rel = ((p - root) % 12 + 12) % 12
-  // Already in-scale?
-  let i = 0
-  while (i < ivs.length) {
-    if (ivs[i] === rel) {
-      return p
-    }
-    i = i + 1
-  }
-  // Nearest degree (search outward; down wins ties).
-  let best = ivs[0]
-  let bestDist = 99
-  let j = 0
-  while (j < ivs.length) {
-    let d0 = Math.abs(ivs[j] - rel)
-    let d1 = Math.abs(ivs[j] - rel + 12)
-    let d2 = Math.abs(ivs[j] - rel - 12)
-    let d = d0 < d1 ? d0 : d1
-    if (d2 < d) {
-      d = d2
-    }
-    if (d < bestDist) {
-      bestDist = d
-      best = ivs[j]
-    }
-    j = j + 1
-  }
-  // Reconstruct the absolute pitch: keep p's octave, replace the within-octave offset, then fix the wrap.
-  let snapped = p - rel + best
-  if (snapped - p > 6) {
-    snapped = snapped - 12
-  }
-  if (p - snapped > 6) {
-    snapped = snapped + 12
-  }
-  return snapped
-}
-
-// Is a scale lock active on the project?
-export fn projectScaleActive(project) {
-  return (project !== null && project !== undefined) && (project.scaleRoot !== null && project.scaleRoot !== undefined) && (project.scaleMode !== null && project.scaleMode !== undefined) && project.scaleMode !== "" && project.scaleMode !== "off"
-}
-
-// Snap a pitch through the project's scale lock (no-op when inactive).
-export fn projectSnapPitch(project, pitch) {
-  if (!projectScaleActive(project)) {
-    return pitch
-  }
-  return snapToScale(pitch, project.scaleRoot, project.scaleMode)
 }

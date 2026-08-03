@@ -1,10 +1,5 @@
-# @spacedevin/deck — agent notes
+# @spacedevin/deck
 
-This package is the **source of truth** for the `.deck` language (parse / apply / emit / stream / co-DJ skills+merge).
+Language-only package. Do not add project IR, session, co-DJ, or audio here.
 
-- Grammar: `docs/DECK_GRAMMAR.md`
-- Agent subset: `docs/DECK_AGENT_GRAMMAR.md`
-- Skills: `docs/DJ_SKILLS.md` + `skills/*.md`
-- Public entry: `src/index.tish`
-
-Deckard (`tish-midi`) should depend on this package rather than maintaining a parallel `src/deckfile/` copy.
+Entry: `src/index.tish`
