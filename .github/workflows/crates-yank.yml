@@ -1,0 +1,65 @@
+# Yank a published `deckfile` version from crates.io.
+#
+# Yanking does NOT delete: the version stays downloadable so existing lockfiles keep building, but
+# no new resolution will pick it. That is the only per-version mechanism crates.io offers — there is
+# no per-version delete, and deleting the whole crate would take the good versions with it.
+#
+# Uses the same CARGO_REGISTRY_TOKEN secret as crates-release.yml. Kept as a workflow rather than a
+# local `cargo yank` so an emergency yank does not depend on whoever is around having a token
+# configured, and so it leaves an audit trail in Actions.
+#
+#   gh workflow run crates-yank.yml -f version=1.2.1
+#   gh workflow run crates-yank.yml -f version=1.2.1 -f undo=true
+
+name: Yank a crates.io version
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to yank, e.g. 1.2.1"
+        required: true
+        type: string
+      undo:
+        description: "Un-yank instead (restores the version)"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  yank:
+    name: ${{ inputs.undo && 'Un-yank' || 'Yank' }} deckfile@${{ inputs.version }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Check the version exists
+        run: |
+          if ! curl -sf "https://crates.io/api/v1/crates/deckfile/${{ inputs.version }}" \
+               -H 'User-Agent: deck-yank' >/dev/null; then
+            echo "deckfile@${{ inputs.version }} is not published — nothing to do."
+            exit 1
+          fi
+
+      - name: ${{ inputs.undo && 'Un-yank' || 'Yank' }}
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: |
+          if [ -z "${CARGO_REGISTRY_TOKEN:-}" ]; then
+            echo "CARGO_REGISTRY_TOKEN is not set on this repository."
+            exit 1
+          fi
+          if [ "${{ inputs.undo }}" = "true" ]; then
+            cargo yank --undo --version "${{ inputs.version }}" deckfile
+          else
+            cargo yank --version "${{ inputs.version }}" deckfile
+          fi
+
+      - name: Report
+        run: |
+          curl -s "https://crates.io/api/v1/crates/deckfile" -H 'User-Agent: deck-yank' \
+            | python3 -c "import json,sys; [print('  %-8s yanked=%s' % (v['num'], v['yanked'])) for v in json.load(sys.stdin)['versions']]"
