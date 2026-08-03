@@ -1,0 +1,10 @@
+deck 1
+@ transport play
+@ launch scene 2
+@ launch clip c0 clip_kick_a
+@ cue 1
+@ throw
+@ fx echo on
+@ deck A cut on
+@ perf_step 16
+bpm 120

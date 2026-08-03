@@ -1,0 +1,135 @@
+{
+  "program": {
+    "tplVersion": 1,
+    "bpm": null,
+    "tracks": [
+      {
+        "name": "Pad",
+        "id": "c7",
+        "generatorId": "warmpad",
+        "rawGenId": "warmpad",
+        "genParams": {
+          "cutoff": 1400
+        },
+        "loopBars": null,
+        "body": [
+          {
+            "lineNo": 8,
+            "tokens": [
+              "mix",
+              "gain",
+              "0.6"
+            ],
+            "raw": "mix gain 0.6"
+          }
+        ],
+        "genBlocks": []
+      },
+      {
+        "name": "Patch",
+        "id": "c8",
+        "generatorId": "patch",
+        "rawGenId": "patch",
+        "genParams": {},
+        "loopBars": null,
+        "body": [
+          {
+            "lineNo": 15,
+            "tokens": [
+              "note",
+              "60",
+              "0",
+              "1",
+              "v",
+              "80"
+            ],
+            "raw": "note 60 0 1 v 80"
+          }
+        ],
+        "genBlocks": [
+          {
+            "generatorId": "patch",
+            "lines": [
+              "osc o1 sawtooth note",
+              "filter f1 lowpass q 4 freq 1800",
+              "conn f1 out 1"
+            ]
+          }
+        ]
+      }
+    ],
+    "removeTrackIds": [],
+    "macros": {
+      "warmpad": {
+        "params": {
+          "cutoff": 800,
+          "res": 0.3,
+          "label": "soft"
+        },
+        "body": [
+          "osc o1 sawtooth note",
+          "filter f1 lowpass q $res freq $cutoff",
+          "conn o1 f1 1"
+        ]
+      }
+    },
+    "autos": [],
+    "masterMixTokens": null,
+    "actorMixRows": [],
+    "clipBlocks": [],
+    "sessionSceneCount": null,
+    "sessionSlots": [],
+    "song": null,
+    "follow": null,
+    "launchQuant": null,
+    "songSeed": null,
+    "xfade": null,
+    "mainDeck": null,
+    "swing": null,
+    "scaleRoot": null,
+    "scaleMode": null,
+    "deckMix": null,
+    "directives": [],
+    "hostStatements": {},
+    "errors": []
+  },
+  "trackBodies": [
+    {
+      "id": "c7",
+      "rows": [
+        {
+          "kind": "mix",
+          "gain": 0.6,
+          "pan": null,
+          "mute": null,
+          "solo": null,
+          "eqLo": null,
+          "eqMid": null,
+          "eqHi": null,
+          "lineNo": 8
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "c8",
+      "rows": [
+        {
+          "kind": "note",
+          "midi": 60,
+          "startBeat": 0,
+          "durBeats": 1,
+          "vel": 80,
+          "prob": null,
+          "ratchet": null,
+          "nudge": null,
+          "bar": null,
+          "lyric": null,
+          "lineNo": 15
+        }
+      ],
+      "errors": []
+    }
+  ],
+  "clipBodies": []
+}

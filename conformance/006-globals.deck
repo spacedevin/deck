@@ -1,0 +1,12 @@
+deck 1
+bpm 118
+swing 0.08
+scale C minor
+launch_quant 4
+song_seed 42
+xfade 0.25 0.75
+main_deck local
+deck_mix A hi 1 mid 0 lo -1 flt 0.5 vol 0.9
+deck_mix B vol 0.5
+master_mix eq_lo 0 eq_mid 1 eq_hi 2
+actor_mix local gain 0.8 eq_hi 1

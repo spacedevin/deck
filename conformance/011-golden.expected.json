@@ -1,0 +1,564 @@
+{
+  "program": {
+    "tplVersion": 1,
+    "bpm": 118,
+    "tracks": [
+      {
+        "name": "Kick",
+        "id": "c0",
+        "generatorId": "noise_burst",
+        "rawGenId": "noise_burst",
+        "genParams": {},
+        "loopBars": null,
+        "body": [
+          {
+            "lineNo": 12,
+            "tokens": [
+              "mix",
+              "gain",
+              "0.9",
+              "pan",
+              "0",
+              "eq_lo",
+              "0",
+              "eq_mid",
+              "0",
+              "eq_hi",
+              "0"
+            ],
+            "raw": "mix gain 0.9 pan 0 eq_lo 0 eq_mid 0 eq_hi 0"
+          },
+          {
+            "lineNo": 13,
+            "tokens": [
+              "deck",
+              "A"
+            ],
+            "raw": "deck A"
+          },
+          {
+            "lineNo": 14,
+            "tokens": [
+              "step_pitch",
+              "36"
+            ],
+            "raw": "step_pitch 36"
+          },
+          {
+            "lineNo": 15,
+            "tokens": [
+              "steps",
+              "x",
+              ".",
+              ".",
+              ".",
+              "x",
+              ".",
+              ".",
+              ".",
+              "x",
+              ".",
+              ".",
+              ".",
+              "x",
+              ".",
+              ".",
+              "."
+            ],
+            "raw": "steps x . . . x . . . x . . . x . . ."
+          },
+          {
+            "lineNo": 16,
+            "tokens": [
+              "step_vel",
+              "120",
+              "100",
+              "100",
+              "100",
+              "70",
+              "100",
+              "100",
+              "100",
+              "100",
+              "100",
+              "100",
+              "100",
+              "90",
+              "100",
+              "100",
+              "100"
+            ],
+            "raw": "step_vel 120 100 100 100 70 100 100 100 100 100 100 100 90 100 100 100"
+          }
+        ],
+        "genBlocks": []
+      },
+      {
+        "name": "Bass",
+        "id": "c3",
+        "generatorId": "fm",
+        "rawGenId": "fm",
+        "genParams": {},
+        "loopBars": 2,
+        "body": [
+          {
+            "lineNo": 19,
+            "tokens": [
+              "mix",
+              "gain",
+              "0.85",
+              "pan",
+              "0"
+            ],
+            "raw": "mix gain 0.85 pan 0"
+          },
+          {
+            "lineNo": 20,
+            "tokens": [
+              "voice",
+              "octave",
+              "-1"
+            ],
+            "raw": "voice octave -1"
+          },
+          {
+            "lineNo": 21,
+            "tokens": [
+              "fx",
+              "cutoff",
+              "1200",
+              "res",
+              "0.4"
+            ],
+            "raw": "fx cutoff 1200 res 0.4"
+          },
+          {
+            "lineNo": 22,
+            "tokens": [
+              "note",
+              "48",
+              "0.0",
+              "0.5",
+              "v",
+              "90"
+            ],
+            "raw": "note 48 0.0 0.5 v 90"
+          },
+          {
+            "lineNo": 23,
+            "tokens": [
+              "note",
+              "50",
+              "1.0",
+              "0.5",
+              "v",
+              "85",
+              "bar",
+              "even"
+            ],
+            "raw": "note 50 1.0 0.5 v 85 bar even"
+          }
+        ],
+        "genBlocks": []
+      },
+      {
+        "name": "Lead",
+        "id": "c4",
+        "generatorId": "patch",
+        "rawGenId": "patch",
+        "genParams": {},
+        "loopBars": null,
+        "body": [
+          {
+            "lineNo": 35,
+            "tokens": [
+              "note",
+              "60",
+              "0",
+              "1",
+              "v",
+              "80"
+            ],
+            "raw": "note 60 0 1 v 80"
+          }
+        ],
+        "genBlocks": [
+          {
+            "generatorId": "patch",
+            "lines": [
+              "osc o1 sawtooth note",
+              "filter f1 lowpass q 4 freq 1800",
+              "gain a1 0",
+              "conn o1 f1 1",
+              "conn f1 a1 1",
+              "conn a1 out 1",
+              "env a1.gain set 0 0 lin 0.01 0.9 lin dur 0"
+            ]
+          }
+        ]
+      }
+    ],
+    "removeTrackIds": [
+      "obsolete"
+    ],
+    "macros": {
+      "soft_lead": {
+        "params": {
+          "tone": 0.3
+        },
+        "body": [
+          "osc o1 sine note",
+          "gain a1 $tone",
+          "conn o1 a1 1",
+          "conn a1 out 1"
+        ]
+      }
+    },
+    "autos": [
+      {
+        "lineNo": 60,
+        "header": [
+          "master_gain"
+        ],
+        "points": [
+          {
+            "beat": 0,
+            "value": 0.85
+          },
+          {
+            "beat": 16,
+            "value": 0.9
+          }
+        ]
+      },
+      {
+        "lineNo": 64,
+        "header": [
+          "c0",
+          "mix",
+          "gain"
+        ],
+        "points": [
+          {
+            "beat": 0,
+            "value": 0.9
+          }
+        ]
+      }
+    ],
+    "masterMixTokens": [
+      "eq_lo",
+      "0",
+      "eq_mid",
+      "0",
+      "eq_hi",
+      "0"
+    ],
+    "actorMixRows": [
+      {
+        "lineNo": 68,
+        "lane": "local",
+        "tokens": [
+          "gain",
+          "1",
+          "eq_lo",
+          "0"
+        ]
+      }
+    ],
+    "clipBlocks": [
+      {
+        "clipId": "clip_kick_a",
+        "channelId": "c0",
+        "bars": 1,
+        "displayName": "Kick A",
+        "body": [
+          {
+            "lineNo": 49,
+            "tokens": [
+              "steps",
+              "x",
+              ".",
+              ".",
+              ".",
+              "x",
+              ".",
+              ".",
+              ".",
+              "x",
+              ".",
+              ".",
+              ".",
+              "x",
+              ".",
+              ".",
+              "."
+            ],
+            "raw": "steps x . . . x . . . x . . . x . . ."
+          }
+        ]
+      }
+    ],
+    "sessionSceneCount": 4,
+    "sessionSlots": [
+      {
+        "channelId": "c0",
+        "scene": 0,
+        "clipId": "clip_kick_a"
+      },
+      {
+        "channelId": "c0",
+        "scene": 1,
+        "clipId": ""
+      }
+    ],
+    "song": [
+      {
+        "scene": 0,
+        "repeat": 1
+      },
+      {
+        "scene": 1,
+        "repeat": 2
+      },
+      {
+        "scene": 2,
+        "repeat": 1
+      }
+    ],
+    "follow": [
+      {
+        "scene": 0,
+        "a": "next",
+        "wa": 1,
+        "b": null,
+        "wb": 0
+      },
+      {
+        "scene": 1,
+        "a": "jump",
+        "wa": 0.7,
+        "b": "stay",
+        "wb": 0.3
+      }
+    ],
+    "launchQuant": 1,
+    "songSeed": 42,
+    "xfade": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "mainDeck": "live",
+    "swing": 0.08,
+    "scaleRoot": 0,
+    "scaleMode": "minor",
+    "deckMix": {
+      "A": {
+        "hi": 0,
+        "mid": 0,
+        "lo": 1,
+        "vol": 0.8
+      }
+    },
+    "directives": [
+      {
+        "lineNo": 70,
+        "verb": "perf_step",
+        "tokens": [
+          "16"
+        ]
+      }
+    ],
+    "hostStatements": {},
+    "errors": []
+  },
+  "trackBodies": [
+    {
+      "id": "c0",
+      "rows": [
+        {
+          "kind": "mix",
+          "gain": 0.9,
+          "pan": 0,
+          "mute": null,
+          "solo": null,
+          "eqLo": 0,
+          "eqMid": 0,
+          "eqHi": 0,
+          "lineNo": 12
+        },
+        {
+          "kind": "deckRoute",
+          "lane": "A",
+          "slot": null,
+          "lineNo": 13
+        },
+        {
+          "kind": "stepPitch",
+          "midi": 36,
+          "bar": null,
+          "lineNo": 14
+        },
+        {
+          "kind": "steps",
+          "mode": "literal",
+          "on": [
+            true,
+            false,
+            false,
+            false,
+            true,
+            false,
+            false,
+            false,
+            true,
+            false,
+            false,
+            false,
+            true,
+            false,
+            false,
+            false
+          ],
+          "lineNo": 15
+        },
+        {
+          "kind": "stepLane",
+          "lane": "vel",
+          "values": [
+            120,
+            100,
+            100,
+            100,
+            70,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            90,
+            100,
+            100,
+            100
+          ],
+          "lineNo": 16
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "c3",
+      "rows": [
+        {
+          "kind": "mix",
+          "gain": 0.85,
+          "pan": 0,
+          "mute": null,
+          "solo": null,
+          "eqLo": null,
+          "eqMid": null,
+          "eqHi": null,
+          "lineNo": 19
+        },
+        {
+          "kind": "voice",
+          "params": {
+            "octave": -1
+          },
+          "lineNo": 20
+        },
+        {
+          "kind": "fx",
+          "params": {
+            "cutoff": 1200,
+            "res": 0.4
+          },
+          "lineNo": 21
+        },
+        {
+          "kind": "note",
+          "midi": 48,
+          "startBeat": 0,
+          "durBeats": 0.5,
+          "vel": 90,
+          "prob": null,
+          "ratchet": null,
+          "nudge": null,
+          "bar": null,
+          "lyric": null,
+          "lineNo": 22
+        },
+        {
+          "kind": "note",
+          "midi": 50,
+          "startBeat": 1,
+          "durBeats": 0.5,
+          "vel": 85,
+          "prob": null,
+          "ratchet": null,
+          "nudge": null,
+          "bar": {
+            "kind": "mod",
+            "a": 2,
+            "b": 0
+          },
+          "lyric": null,
+          "lineNo": 23
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "c4",
+      "rows": [
+        {
+          "kind": "note",
+          "midi": 60,
+          "startBeat": 0,
+          "durBeats": 1,
+          "vel": 80,
+          "prob": null,
+          "ratchet": null,
+          "nudge": null,
+          "bar": null,
+          "lyric": null,
+          "lineNo": 35
+        }
+      ],
+      "errors": []
+    }
+  ],
+  "clipBodies": [
+    {
+      "clipId": "clip_kick_a",
+      "rows": [
+        {
+          "kind": "steps",
+          "mode": "literal",
+          "on": [
+            true,
+            false,
+            false,
+            false,
+            true,
+            false,
+            false,
+            false,
+            true,
+            false,
+            false,
+            false,
+            true,
+            false,
+            false,
+            false
+          ],
+          "lineNo": 49
+        }
+      ],
+      "errors": []
+    }
+  ]
+}

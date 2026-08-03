@@ -1,0 +1,21 @@
+deck 1
+session_scenes 4
+session_slot c0 0 clip_kick_a
+session_slot c1 1 -
+clip clip_kick_a channel c0 bars 2 name Kick Pattern A
+  steps x . . . x . . . x . . . x . . .
+  note 36 0 1 v 100
+  loops 4
+song
+  P1
+  P2 x4
+  3
+follow
+  P1 next 1
+  P2 jump 0.7 stay 0.3
+auto master_gain
+  0 0.85
+  16 0.9
+auto c0 gen cutoff
+  0 200
+  8 2000

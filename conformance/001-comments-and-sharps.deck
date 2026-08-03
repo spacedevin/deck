@@ -1,0 +1,6 @@
+# A leading comment line.
+deck 1
+bpm 120  # trailing comment after whitespace
+scale F# minor
+track C# Lead id c1 gen fm
+  note 61 0 1 v 100

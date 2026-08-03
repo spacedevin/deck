@@ -60,10 +60,15 @@ Matches [lattish](https://github.com/tishlang/lattish): semantic-release prerele
 ## Test / coverage
 
 ```bash
-npm test              # build + API/grammar suite + tish smoke
-npm run test:coverage # c8 on dist/deck.js — 100% lines / functions / statements
-npm run examples      # runnable demos
+npm test                 # build + API/grammar suite + conformance + tish smoke
+npm run test:coverage    # c8 on dist/deck.js — 100% lines / functions / statements
+npm run test:conformance # the cross-implementation corpus
+npm run examples         # runnable demos
 ```
+
+**[`conformance/`](conformance/)** is the contract between implementations: the same `.deck` inputs
+and expected parses are run by the JS build, the Rust crate emitted from the same Tish source, and
+any restricted host (via a profile). It is what makes drift a test failure rather than a surprise.
 
 Branch % is lower (~60%) because the Tish→JS emit adds many `?? null` / typeof guards that are defensive noise, not language logic. Line coverage is the gate in CI.
 

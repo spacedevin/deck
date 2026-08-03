@@ -29,6 +29,9 @@ jobs:
       - name: Run tests with coverage
         run: npm run test:coverage
 
+      - name: Conformance corpus
+        run: npm run test:conformance
+
       - name: Examples
         run: npm run examples
 

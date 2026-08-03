@@ -1,0 +1,14 @@
+deck 1
+track Kick id c0 gen noise_burst
+  steps x . . . X . . . 1 . . . | 0 . . .
+  step_vel 120 100 100 100 70 100 100 100 100 100 100 100 90 100 100 100
+  step_prob 1 1 0.5 1
+  step_ratchet 1 2 1 1
+  step_nudge 0 -0.1 0 0.25
+  step_pitch 36 bar 2n+1
+track Hat id c1 gen noise_burst * 2
+  steps euclid 5 16
+  loops 8
+track Perc id c2 gen noise_burst
+  steps x . . . x . . . x . . . x . . . x . . . x . . . x . . . x . . .
+  loops inf

@@ -19,6 +19,9 @@ Language-only package for the **`.deck`** patch language.
 - Host integration (`docs/HOST.md`)
 - Runnable examples (`examples/`)
 - Tests covering the documented API + grammar (`test/coverage.mjs`, `fixtures/golden.deck`)
+- The conformance corpus (`conformance/`) — the cross-implementation contract. A language change
+  means regenerating it (`npm run conformance:update`) and **reviewing the diff**; a new case means
+  every profile in `profiles.json` must say where it stands.
 
 ## Out of scope — do not add here
 

@@ -1,0 +1,185 @@
+{
+  "program": {
+    "tplVersion": 1,
+    "bpm": null,
+    "tracks": [
+      {
+        "name": "MOS 6581",
+        "id": "c9",
+        "generatorId": "fm",
+        "rawGenId": "fm",
+        "genParams": {},
+        "loopBars": null,
+        "body": [
+          {
+            "lineNo": 3,
+            "tokens": [
+              "mix",
+              "gain",
+              "1"
+            ],
+            "raw": "mix gain 1"
+          }
+        ],
+        "genBlocks": []
+      },
+      {
+        "name": "Bass",
+        "id": "c3",
+        "generatorId": "fm",
+        "rawGenId": "fm",
+        "genParams": {},
+        "loopBars": 2,
+        "body": [
+          {
+            "lineNo": 5,
+            "tokens": [
+              "mix",
+              "gain",
+              "0.85"
+            ],
+            "raw": "mix gain 0.85"
+          }
+        ],
+        "genBlocks": []
+      },
+      {
+        "name": "Pad",
+        "id": "c4",
+        "generatorId": "fm",
+        "rawGenId": "fm",
+        "genParams": {},
+        "loopBars": null,
+        "body": [
+          {
+            "lineNo": 7,
+            "tokens": [
+              "mix",
+              "gain",
+              "0.5"
+            ],
+            "raw": "mix gain 0.5"
+          }
+        ],
+        "genBlocks": []
+      },
+      {
+        "name": "Lead",
+        "id": "c5",
+        "generatorId": "mymacro",
+        "rawGenId": "mymacro",
+        "genParams": {
+          "cutoff": 1200,
+          "wave": "saw"
+        },
+        "loopBars": null,
+        "body": [
+          {
+            "lineNo": 9,
+            "tokens": [
+              "mix",
+              "gain",
+              "0.7"
+            ],
+            "raw": "mix gain 0.7"
+          }
+        ],
+        "genBlocks": []
+      }
+    ],
+    "removeTrackIds": [
+      "obsolete"
+    ],
+    "macros": {},
+    "autos": [],
+    "masterMixTokens": null,
+    "actorMixRows": [],
+    "clipBlocks": [],
+    "sessionSceneCount": null,
+    "sessionSlots": [],
+    "song": null,
+    "follow": null,
+    "launchQuant": null,
+    "songSeed": null,
+    "xfade": null,
+    "mainDeck": null,
+    "swing": null,
+    "scaleRoot": null,
+    "scaleMode": null,
+    "deckMix": null,
+    "directives": [],
+    "hostStatements": {},
+    "errors": []
+  },
+  "trackBodies": [
+    {
+      "id": "c9",
+      "rows": [
+        {
+          "kind": "mix",
+          "gain": 1,
+          "pan": null,
+          "mute": null,
+          "solo": null,
+          "eqLo": null,
+          "eqMid": null,
+          "eqHi": null,
+          "lineNo": 3
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "c3",
+      "rows": [
+        {
+          "kind": "mix",
+          "gain": 0.85,
+          "pan": null,
+          "mute": null,
+          "solo": null,
+          "eqLo": null,
+          "eqMid": null,
+          "eqHi": null,
+          "lineNo": 5
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "c4",
+      "rows": [
+        {
+          "kind": "mix",
+          "gain": 0.5,
+          "pan": null,
+          "mute": null,
+          "solo": null,
+          "eqLo": null,
+          "eqMid": null,
+          "eqHi": null,
+          "lineNo": 7
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "c5",
+      "rows": [
+        {
+          "kind": "mix",
+          "gain": 0.7,
+          "pan": null,
+          "mute": null,
+          "solo": null,
+          "eqLo": null,
+          "eqMid": null,
+          "eqHi": null,
+          "lineNo": 9
+        }
+      ],
+      "errors": []
+    }
+  ],
+  "clipBodies": []
+}

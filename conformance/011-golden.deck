@@ -1,0 +1,71 @@
+deck 1
+bpm 118
+swing 0.08
+scale C minor
+xfade 0.5 0.5
+main_deck live
+launch_quant 1
+song_seed 42
+deck_mix A hi 0 mid 0 lo 1 vol 0.8
+
+track Kick id c0 gen noise_burst
+  mix gain 0.9 pan 0 eq_lo 0 eq_mid 0 eq_hi 0
+  deck A
+  step_pitch 36
+  steps x . . . x . . . x . . . x . . .
+  step_vel 120 100 100 100 70 100 100 100 100 100 100 100 90 100 100 100
+
+track Bass id c3 gen fm * 2
+  mix gain 0.85 pan 0
+  voice octave -1
+  fx cutoff 1200 res 0.4
+  note 48 0.0 0.5 v 90
+  note 50 1.0 0.5 v 85 bar even
+
+track Lead id c4 gen patch
+  gen_block patch
+    osc o1 sawtooth note
+    filter f1 lowpass q 4 freq 1800
+    gain a1 0
+    conn o1 f1 1
+    conn f1 a1 1
+    conn a1 out 1
+    env a1.gain set 0 0 lin 0.01 0.9 lin dur 0
+  end gen_block
+  note 60 0 1 v 80
+
+macro soft_lead tone=0.3
+  osc o1 sine note
+  gain a1 $tone
+  conn o1 a1 1
+  conn a1 out 1
+end macro
+
+session_scenes 4
+session_slot c0 0 clip_kick_a
+session_slot c0 1 -
+
+clip clip_kick_a channel c0 bars 1 name Kick A
+  steps x . . . x . . . x . . . x . . .
+
+song
+  P1
+  P2 x2
+  3
+
+follow
+  P1 next 1
+  P2 jump 0.7 stay 0.3
+
+auto master_gain
+  0 0.85
+  16 0.9
+
+auto c0 mix gain
+  0 0.9
+
+master_mix eq_lo 0 eq_mid 0 eq_hi 0
+actor_mix local gain 1 eq_lo 0
+
+@ perf_step 16
+remove_track obsolete

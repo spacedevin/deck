@@ -1,0 +1,62 @@
+{
+  "program": {
+    "tplVersion": 1,
+    "bpm": 118,
+    "tracks": [],
+    "removeTrackIds": [],
+    "macros": {},
+    "autos": [],
+    "masterMixTokens": [
+      "eq_lo",
+      "0",
+      "eq_mid",
+      "1",
+      "eq_hi",
+      "2"
+    ],
+    "actorMixRows": [
+      {
+        "lineNo": 12,
+        "lane": "local",
+        "tokens": [
+          "gain",
+          "0.8",
+          "eq_hi",
+          "1"
+        ]
+      }
+    ],
+    "clipBlocks": [],
+    "sessionSceneCount": null,
+    "sessionSlots": [],
+    "song": null,
+    "follow": null,
+    "launchQuant": 4,
+    "songSeed": 42,
+    "xfade": {
+      "x": 0.25,
+      "y": 0.75
+    },
+    "mainDeck": "local",
+    "swing": 0.08,
+    "scaleRoot": 0,
+    "scaleMode": "minor",
+    "deckMix": {
+      "A": {
+        "hi": 1,
+        "mid": 0,
+        "lo": -1,
+        "flt": 0.5,
+        "vol": 0.9
+      },
+      "B": {
+        "vol": 0.5
+      }
+    },
+    "directives": [],
+    "hostStatements": {},
+    "errors": []
+  },
+  "trackBodies": [],
+  "clipBodies": []
+}
