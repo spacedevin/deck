@@ -1,0 +1,96 @@
+{
+  "name": "@spacedevin/deck",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Streamable .deck patch language — parse, apply, emit, co-DJ skills/merge",
+  "license": "MIT",
+  "author": "spacedevin",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/spacedevin/deck.git"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "tish": {
+    "module": "./src/index.tish"
+  },
+  "main": "./dist/deck.js",
+  "module": "./dist/deck.js",
+  "exports": {
+    ".": {
+      "tish": "./src/index.tish",
+      "import": "./dist/deck.js",
+      "require": "./dist/deck.js",
+      "default": "./dist/deck.js"
+    },
+    "./parser": {
+      "tish": "./src/deckfile/Parser.tish",
+      "default": "./src/deckfile/Parser.tish"
+    },
+    "./apply": {
+      "tish": "./src/deckfile/Apply.tish",
+      "default": "./src/deckfile/Apply.tish"
+    },
+    "./emit": {
+      "tish": "./src/deckfile/Emit.tish",
+      "default": "./src/deckfile/Emit.tish"
+    },
+    "./stream": {
+      "tish": "./src/deckfile/Stream.tish",
+      "default": "./src/deckfile/Stream.tish"
+    },
+    "./skills-gate": {
+      "tish": "./src/codj/Skills.tish",
+      "default": "./src/codj/Skills.tish"
+    },
+    "./merge": {
+      "tish": "./src/codj/Merge.tish",
+      "default": "./src/codj/Merge.tish"
+    },
+    "./grammar": "./docs/DECK_GRAMMAR.md",
+    "./agent-grammar": "./docs/DECK_AGENT_GRAMMAR.md",
+    "./schema": "./schema/project-v2.json",
+    "./skills/*": "./skills/*",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "src/",
+    "dist/",
+    "docs/",
+    "schema/",
+    "skills/",
+    "projects/",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tish build src/index.tish -o dist/deck.js --target js && node scripts/append-exports.mjs",
+    "tishversion": "tish -V",
+    "test": "tish build --target js test/smoke.tish -o /tmp/spacedevin-deck-smoke.js && node /tmp/spacedevin-deck-smoke.js",
+    "prepack": "npm run build",
+    "prepublishOnly": "npm run build"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "keywords": [
+    "deck",
+    "deckard",
+    "tish",
+    "live-coding",
+    "daw",
+    "parser"
+  ],
+  "peerDependencies": {
+    "@tishlang/tish": ">=2.43.0"
+  },
+  "devDependencies": {
+    "@semantic-release/commit-analyzer": "13.0.1",
+    "@semantic-release/github": "12.0.6",
+    "@semantic-release/npm": "13.1.5",
+    "@semantic-release/release-notes-generator": "14.1.0",
+    "@tishlang/tish": "^2.43.0",
+    "semantic-release": "25.0.3"
+  }
+}

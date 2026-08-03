@@ -1,0 +1,186 @@
+// Channel = routing (gain, pan, mute, solo) + generatorId + generatorParams (sound + ADSR per plugin).
+
+import { defaultParamsForGeneratorId } from '../generators/Defaults.tish'
+export { defaultParamsForGeneratorId } from '../generators/Defaults.tish'
+
+// A step carries its on/off + PER-STEP PARAMETER LOCKS: vel (1..127), prob (0..1 chance it fires — seeded so
+// every client agrees), ratchet (1..8 sub-hits within the step), nudge (−0.5..0.5 of a step, micro-timing).
+// Defaults = a plain full-velocity, always-firing, single hit on the grid (so old projects are unchanged).
+export fn makeStep(on, vel) {
+  return { on: on, vel: vel, prob: 1, ratchet: 1, nudge: 0, lyric: "" }
+}
+
+// Full copy of a PIANO NOTE including its per-note p-locks (prob/ratchet/nudge) — used wherever notes are
+// duplicated (clip sync, scene load, bar tiling/splicing) so the locks ride along instead of resetting.
+// Tolerates legacy notes missing the lock fields. The caller overrides startBeat/durBeats when re-positioning.
+export fn clonePianoNote(n) {
+  if (!n) {
+    return { startBeat: 0, durBeats: 0.25, pitch: 60, vel: 100, prob: 1, ratchet: 1, nudge: 0, lyric: "" }
+  }
+  return {
+    startBeat: n.startBeat,
+    durBeats: n.durBeats,
+    pitch: n.pitch,
+    vel: n.vel !== null && n.vel !== undefined ? n.vel : 100,
+    prob: n.prob !== null && n.prob !== undefined ? n.prob : 1,
+    ratchet: n.ratchet !== null && n.ratchet !== undefined ? n.ratchet : 1,
+    nudge: n.nudge !== null && n.nudge !== undefined ? n.nudge : 0,
+    lyric: n.lyric !== null && n.lyric !== undefined ? n.lyric : ""
+  }
+}
+
+// Full copy of a step INCLUDING its p-locks — used wherever steps are duplicated (clip sync, tiling) so the
+// locks ride along instead of being reset to defaults. Tolerates legacy steps missing the lock fields.
+export fn cloneStep(st) {
+  if (!st) {
+    return makeStep(false, 100)
+  }
+  return {
+    on: st.on === true,
+    vel: st.vel !== null && st.vel !== undefined ? st.vel : 100,
+    prob: st.prob !== null && st.prob !== undefined ? st.prob : 1,
+    ratchet: st.ratchet !== null && st.ratchet !== undefined ? st.ratchet : 1,
+    nudge: st.nudge !== null && st.nudge !== undefined ? st.nudge : 0,
+    lyric: st.lyric !== null && st.lyric !== undefined ? st.lyric : ""
+  }
+}
+
+export fn makeSteps16() {
+  let s = []
+  let i = 0
+  while (i < 16) {
+    s.push(makeStep(false, 100))
+    i = i + 1
+  }
+  return s
+}
+
+export fn makeChannel(id, name, stepPitch, generatorId) {
+  let gid = generatorId
+  if (!gid) {
+    gid = "basicOsc"
+  }
+  return {
+    id: id,
+    name: name,
+    actorLane: "",
+    gain: 0.85,
+    pan: 0,
+    mute: false,
+    solo: false,
+    eqLo: 0,
+    eqMid: 0,
+    eqHi: 0,
+    generatorId: gid,
+    generatorParams: defaultParamsForGeneratorId(gid),
+    filterCutoff: 20000,
+    filterQ: 0.7,
+    reverbSend: 0,
+    stepPitch: stepPitch,
+    steps: makeSteps16(),
+    pianoNotes: [],
+    generatorSpec: null,
+    patternBars: 1,
+    tplLoopBars: null,
+    deck: "live"
+  }
+}
+
+// Empty shell merged with deck via loadProjectFromTpl (channels come from the song text).
+export fn emptyProjectShell() {
+  let instrumentPresets = [
+    {
+      presetId: "factory_kick",
+      name: "Kick punch",
+      generatorId: "noiseBurst",
+      params: { attack: 0.002, decay: 0.12, tone: 0.15, pitchFollow: 0.35 }
+    },
+    {
+      presetId: "factory_hat",
+      name: "Hat tight",
+      generatorId: "noiseBurst",
+      params: { attack: 0.001, decay: 0.035, tone: 0.85, pitchFollow: 0.05 }
+    },
+    {
+      presetId: "factory_bass_fm",
+      name: "Bass growl",
+      generatorId: "fmTone",
+      params: {
+        ratio: 1,
+        modIndex: 8,
+        carrierWave: "sine",
+        modWave: "square",
+        attack: 0.005,
+        decay: 0.1,
+        sustain: 0.3,
+        release: 0.2
+      }
+    },
+    {
+      presetId: "factory_pad",
+      name: "Aether pad",
+      generatorId: "pad",
+      params: { wave1: "sine", wave2: "triangle", detune: 11, cutoff: 1800, attack: 0.4, decay: 0.6, sustain: 0.7, release: 1.5 }
+    },
+    {
+      presetId: "factory_bell",
+      name: "Stellar bell",
+      generatorId: "bell",
+      params: { partial: 2.01, highpass: 900, decay: 1.4 }
+    },
+    {
+      presetId: "factory_pluck",
+      name: "Soft pluck",
+      generatorId: "pad",
+      params: { wave1: "triangle", wave2: "sine", detune: 6, cutoff: 2600, attack: 0.005, decay: 0.18, sustain: 0.25, release: 0.3 }
+    },
+    {
+      presetId: "factory_kick_punch",
+      name: "Kick (punch)",
+      generatorId: "drumSynth",
+      params: { tone: "sine", pitchEnv: 42, pitchDecay: 0.05, decay: 0.4, noise: 0, drive: 0.15 }
+    },
+    {
+      presetId: "factory_808",
+      name: "808 sub",
+      generatorId: "drumSynth",
+      params: { tone: "sine", pitchEnv: 24, pitchDecay: 0.09, decay: 0.9, noise: 0, drive: 0.1 }
+    },
+    {
+      presetId: "factory_snare",
+      name: "Snare",
+      generatorId: "drumSynth",
+      params: { tone: "triangle", pitchEnv: 18, pitchDecay: 0.04, decay: 0.18, noise: 0.7, noiseHp: 1800, noiseDecay: 0.18, drive: 0.1 }
+    },
+    {
+      presetId: "factory_clap",
+      name: "Clap",
+      generatorId: "drumSynth",
+      params: { tone: "triangle", pitchEnv: 0, pitchDecay: 0.01, decay: 0.02, noise: 1.0, noiseHp: 1200, noiseDecay: 0.16 }
+    }
+  ]
+  return {
+    version: 2,
+    bpm: 120,
+    transportMainDeck: "live",
+    transportCrossfade: 0.5,
+    transportCrossfadeY: 0.5,
+    swing: 0,
+    channels: [],
+    instrumentPresets: instrumentPresets,
+    automation: {
+      pitchBend: [{ beat: 0, value: 0 }, { beat: 4, value: 0 }],
+      masterGain: [{ beat: 0, value: 1 }, { beat: 16, value: 1 }]
+    },
+    paramAutomations: [],
+    mixerAutomations: []
+  }
+}
+
+export fn projectToJson(project) {
+  return JSON.stringify(project)
+}
+
+export fn projectFromJson(s) {
+  return JSON.parse(s)
+}

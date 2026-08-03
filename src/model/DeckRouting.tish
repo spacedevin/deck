@@ -1,0 +1,247 @@
+// Up to 4 PLAYERS share 2 decks: P1=Deck A top, P2=Deck B top, P3=Deck A bottom, P4=Deck B bottom.
+// A 2-axis crossfader (transportCrossfade = X = A↔B, transportCrossfadeY = Y = top↔bottom) equal-power
+// blends the four player corners into main out. Player order = [host, …others] in project.coDjPlayers.
+
+import { channelActorLane } from './MixerRouting.tish'
+import { ensureCoDjMeta } from '../codj/CoDjMeta.tish'
+
+export fn normalizeMainDeck(project) {
+  if (!project) {
+    return "live"
+  }
+  let md = project.transportMainDeck
+  if (md === "local") {
+    return "local"
+  }
+  return "live"
+}
+
+/** X crossfader 0..1 (0 = Deck A / left, 1 = Deck B / right). */
+export fn crossfadeValue(project) {
+  if (!project) {
+    return 0.5
+  }
+  let x = project.transportCrossfade
+  if (typeof x !== "number" || x !== x) {
+    return normalizeMainDeck(project) === "live" ? 1 : 0
+  }
+  if (x < 0) {
+    x = 0
+  }
+  if (x > 1) {
+    x = 1
+  }
+  return x
+}
+
+/** Y crossfader 0..1 (0 = top players P1/P2, 1 = bottom players P3/P4). Defaults to the mains (top). */
+export fn crossfadeValueY(project) {
+  if (!project) {
+    return 0
+  }
+  let y = project.transportCrossfadeY
+  if (typeof y !== "number" || y !== y) {
+    return 0
+  }
+  if (y < 0) {
+    y = 0
+  }
+  if (y > 1) {
+    y = 1
+  }
+  return y
+}
+
+/** Player slot 0..3 for a channel: 0=P1 (host), 1=P2, 2=P3, 3=P4 — by owner's position in the room. */
+// CANONICAL deck/player index for a channel — a deterministic function of the SHARED document, so it is
+// IDENTICAL on every client (host and all guests). The deck assignment (and therefore the colour) must
+// NEVER depend on who is viewing — the channel's order/ownership is what matters. Order: an explicit
+// deckSlot wins; else the owner's position in the shared roster (host = P1); unclaimed = the host's deck.
+export fn channelPlayerIndex(project, ch) {
+  if (!ch || !project) {
+    return 0
+  }
+  let players = project.coDjPlayers
+  // SOLO / pre-session: no shared roster, so an explicit deck slot (loadDeckSet / manual deck handoff) is the
+  // canonical assignment; otherwise the local lane decides (Deck A = local, anything else = Deck B).
+  if (!Array.isArray(players) || players.length <= 1) {
+    if (ch.deckSlot !== null && ch.deckSlot !== undefined) {
+      let s = Math.floor(Number(ch.deckSlot))
+      if (s >= 0 && s <= 3 && s === s) {
+        return s
+      }
+    }
+    return channelActorLane(ch, project) === "local" ? 0 : 1
+  }
+  // IN A LIVE SESSION: OWNERSHIP is canonical. Resolve the owner's slot in the shared roster first.
+  ensureCoDjMeta(project)
+  let meta = project.coDjMeta.tracks[ch.id]
+  let owner = meta && meta.ownerActorId ? String(meta.ownerActorId) : "human"
+  // Unclaimed / host-owned tracks live on the HOST's deck on EVERY client — NOT the local viewer's. (The
+  // old code remapped "human" → coDjSelfActorId, which made the SAME channel a different colour per client.
+  // Ownership/order is canonical; the viewer is irrelevant.)
+  if (owner === "human" && project.coDjHostActorId !== null && project.coDjHostActorId !== undefined && project.coDjHostActorId !== "") {
+    owner = String(project.coDjHostActorId)
+  }
+  let oi = -1
+  let i = 0
+  while (i < players.length && i < 4) {
+    if (String(players[i]) === owner) {
+      oi = i
+      i = 4
+    } else {
+      i = i + 1
+    }
+  }
+  if (oi < 0) {
+    // Owner not in the roster yet (just joined / mid-sync): park unknown contributors on P2, consistently.
+    return 1
+  }
+  if (oi === 0) {
+    // Host / unclaimed: the host may legitimately stage content across decks B/C/D (loadDeckSet, pre-handoff,
+    // before the Merge-to-Deck-A prompt), so honour an explicit deck slot here.
+    if (ch.deckSlot !== null && ch.deckSlot !== undefined) {
+      let s = Math.floor(Number(ch.deckSlot))
+      if (s >= 0 && s <= 3 && s === s) {
+        return s
+      }
+    }
+    return 0
+  }
+  // A GUEST-owned track ALWAYS lives on that guest's own deck. A stray deck slot — e.g. a "+ TRACK" that
+  // defaulted to slot 0, or an inherited DeckSet slot — must NEVER pin a non-host's track onto the host's
+  // Deck A. Ownership is the source of truth in a live session, so deckSlot cannot override it for guests.
+  return oi
+}
+
+/** One deck per player: A (top-left), B (top-right), C (bottom-left), D (bottom-right). */
+export fn channelDeck(project, ch) {
+  let idx = channelPlayerIndex(project, ch)
+  if (idx === 1) {
+    return "B"
+  }
+  if (idx === 2) {
+    return "C"
+  }
+  if (idx === 3) {
+    return "D"
+  }
+  return "A"
+}
+
+/** Lowercase deck letter for CSS class suffixes (a/b/c/d). */
+export fn channelDeckColor(project, ch) {
+  let d = channelDeck(project, ch)
+  if (d === "B") {
+    return "b"
+  }
+  if (d === "C") {
+    return "c"
+  }
+  if (d === "D") {
+    return "d"
+  }
+  return "a"
+}
+
+/** "top" (decks A/B) or "bottom" (decks C/D) row in the 2×2 deck grid. */
+export fn channelDeckRow(project, ch) {
+  return channelPlayerIndex(project, ch) < 2 ? "top" : "bottom"
+}
+
+// Apply a parsed `deck_mix` map (deck -> {hi,mid,lo,flt,vol}) onto project.deckEq, clamped to the UI ranges
+// (EQ bands -12..12 dB, FLT -1..1, vol 0..1). Pure data write — the receiver recomputes the per-channel eq via
+// applyDeckEq afterward. Shared by applyParsed (snapshot load) and applyCoDjTplSource (deck.put / incremental).
+export fn applyDeckMixParsed(project, deckMix) {
+  if (!project || deckMix === null || deckMix === undefined) {
+    return
+  }
+  if (!project.deckEq) {
+    project.deckEq = {}
+  }
+  let decks = ["A", "B", "C", "D"]
+  let i = 0
+  while (i < decks.length) {
+    let dk = decks[i]
+    let src = deckMix[dk]
+    if (src !== null && src !== undefined) {
+      let de = project.deckEq[dk]
+      if (!de) {
+        de = { hi: 0, mid: 0, lo: 0, flt: 0, vol: 1 }
+        project.deckEq[dk] = de
+      }
+      if (typeof src.hi === "number" && src.hi === src.hi) {
+        de.hi = src.hi < -12 ? -12 : (src.hi > 12 ? 12 : src.hi)
+      }
+      if (typeof src.mid === "number" && src.mid === src.mid) {
+        de.mid = src.mid < -12 ? -12 : (src.mid > 12 ? 12 : src.mid)
+      }
+      if (typeof src.lo === "number" && src.lo === src.lo) {
+        de.lo = src.lo < -12 ? -12 : (src.lo > 12 ? 12 : src.lo)
+      }
+      if (typeof src.flt === "number" && src.flt === src.flt) {
+        de.flt = src.flt < -1 ? -1 : (src.flt > 1 ? 1 : src.flt)
+      }
+      if (typeof src.vol === "number" && src.vol === src.vol) {
+        de.vol = src.vol < 0 ? 0 : (src.vol > 1 ? 1 : src.vol)
+      }
+    }
+    i = i + 1
+  }
+}
+
+/** Per-deck volume fader (0..1, default 1) from the centre DJ-mixer strip. Lives on project.deckEq[deck]. */
+export fn deckVolumeFor(project, ch) {
+  if (!project || !project.deckEq) {
+    return 1
+  }
+  let de = project.deckEq[channelDeck(project, ch)]
+  if (!de || typeof de.vol !== "number") {
+    return 1
+  }
+  let v = de.vol
+  if (v < 0) {
+    return 0
+  }
+  if (v > 1) {
+    return 1
+  }
+  return v
+}
+
+/** Equal-power crossfader gain for a whole DECK (0=A,1=B,2=C,3=D), no per-channel volume. Lets a non-channel
+ *  source (the scratch deck) ride the same 4-way fader so it cuts with the decks. */
+export fn deckCrossfadeGain(project, deckIndex) {
+  let x = crossfadeValue(project)
+  let y = crossfadeValueY(project)
+  let gLeft = Math.cos((x * Math.PI) / 2)
+  let gRight = Math.sin((x * Math.PI) / 2)
+  let gTop = Math.cos((y * Math.PI) / 2)
+  let gBottom = Math.sin((y * Math.PI) / 2)
+  let idx = Math.floor(Number(deckIndex))
+  let gx = idx % 2 === 0 ? gLeft : gRight
+  let gy = idx < 2 ? gTop : gBottom
+  return gx * gy
+}
+
+/** Equal-power crossfader corner gain × the per-deck volume fader — the channel's full main-out multiplier. */
+export fn deckMainOutGainMultiplier(project, ch) {
+  let x = crossfadeValue(project)
+  let y = crossfadeValueY(project)
+  let gLeft = Math.cos((x * Math.PI) / 2)
+  let gRight = Math.sin((x * Math.PI) / 2)
+  let gTop = Math.cos((y * Math.PI) / 2)
+  let gBottom = Math.sin((y * Math.PI) / 2)
+  let idx = channelPlayerIndex(project, ch)
+  let gx = idx % 2 === 0 ? gLeft : gRight
+  let gy = idx < 2 ? gTop : gBottom
+  return gx * gy * deckVolumeFor(project, ch)
+}
+
+/** True if this channel's player corner still has audible crossfader gain (drives note triggering). */
+export fn channelHeardOnMainDeck(project, ch) {
+  if (!ch) {
+    return false
+  }
+  return deckMainOutGainMultiplier(project, ch) > 0.0015
+}

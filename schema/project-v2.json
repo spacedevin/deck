@@ -1,0 +1,301 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Tish MIDI DAW Project v2",
+  "type": "object",
+  "required": ["version", "bpm", "channels"],
+  "properties": {
+    "version": { "type": "integer", "minimum": 2 },
+    "bpm": { "type": "number", "minimum": 20, "maximum": 300 },
+    "transportMainDeck": {
+      "type": "string",
+      "enum": ["live", "local"],
+      "description": "Which deck is sent to main output; the other deck is silent (DJ-style split)."
+    },
+    "channels": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/channel" }
+    },
+    "automation": {
+      "type": "object",
+      "properties": {
+        "pitchBend": { "$ref": "#/$defs/automationLane" },
+        "masterGain": { "$ref": "#/$defs/automationLane" }
+      }
+    },
+    "paramAutomations": {
+      "type": "array",
+      "description": "Per-channel generator param lanes (deck auto … gen …)",
+      "items": {
+        "type": "object",
+        "required": ["channelId", "param", "points"],
+        "properties": {
+          "channelId": { "type": "string" },
+          "param": { "type": "string" },
+          "points": { "$ref": "#/$defs/automationLane" }
+        }
+      }
+    },
+    "mixerAutomations": {
+      "type": "array",
+      "description": "Mixer lanes: track gain/pan/EQ, actor trim/EQ, master EQ (deck auto … mix …)",
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": ["target", "channelId", "param", "points"],
+            "properties": {
+              "target": { "const": "channel" },
+              "channelId": { "type": "string" },
+              "param": { "type": "string" },
+              "points": { "$ref": "#/$defs/automationLane" }
+            }
+          },
+          {
+            "type": "object",
+            "required": ["target", "lane", "param", "points"],
+            "properties": {
+              "target": { "const": "actor" },
+              "lane": { "type": "string" },
+              "param": { "type": "string" },
+              "points": { "$ref": "#/$defs/automationLane" }
+            }
+          },
+          {
+            "type": "object",
+            "required": ["target", "param", "points"],
+            "properties": {
+              "target": { "const": "master" },
+              "param": { "type": "string" },
+              "points": { "$ref": "#/$defs/automationLane" }
+            }
+          }
+        ]
+      }
+    },
+    "masterMixer": {
+      "type": "object",
+      "description": "Master bus 3-band EQ (dB); output level is automation.masterGain",
+      "properties": {
+        "eqLo": { "type": "number" },
+        "eqMid": { "type": "number" },
+        "eqHi": { "type": "number" }
+      }
+    },
+    "actorMixer": {
+      "type": "object",
+      "description": "Per-actor-lane bus: trim, mute/solo, 3-band EQ (dB)",
+      "additionalProperties": { "$ref": "#/$defs/actorMixRow" }
+    },
+    "session": {
+      "type": "object",
+      "description": "Clip launcher grid: scenes = columns, slots[trackIdx][sceneIdx] = clip id or empty",
+      "properties": {
+        "sceneCount": { "type": "integer", "minimum": 1 },
+        "slots": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "sessionClip": {
+      "type": "object",
+      "required": ["id", "name", "bars", "steps", "pianoNotes"],
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "bars": { "type": "integer", "minimum": 1 },
+        "steps": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["on", "vel"],
+            "properties": {
+              "on": { "type": "boolean" },
+              "vel": { "type": "number" },
+              "lyric": { "type": "string" }
+            }
+          }
+        },
+        "pianoNotes": { "type": "array" },
+        "tplLoopBars": { "type": ["integer", "null"] }
+      }
+    },
+    "automationLane": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["beat", "value"],
+        "properties": {
+          "beat": { "type": "number" },
+          "value": { "type": "number" }
+        }
+      }
+    },
+    "actorMixRow": {
+      "type": "object",
+      "properties": {
+        "gain": { "type": "number", "description": "Actor bus trim (linear)" },
+        "mute": { "type": "boolean" },
+        "solo": { "type": "boolean" },
+        "eqLo": { "type": "number" },
+        "eqMid": { "type": "number" },
+        "eqHi": { "type": "number" }
+      }
+    },
+    "matrixFmGraph": {
+      "type": "object",
+      "description": "Parsed gen_block matrix_fm DSL (kind matrixFm, version 2)",
+      "required": ["ops", "opEnvs", "filterEnvs", "filters", "mods", "routes"],
+      "properties": {
+        "ops": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "wave": { "type": "string" },
+              "ratio": { "type": "number" }
+            }
+          }
+        },
+        "opEnvs": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "a": { "type": ["number", "null"] },
+              "d": { "type": ["number", "null"] },
+              "s": { "type": ["number", "null"] },
+              "r": { "type": ["number", "null"] }
+            }
+          }
+        },
+        "filterEnvs": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "a": { "type": ["number", "null"] },
+              "d": { "type": ["number", "null"] },
+              "s": { "type": ["number", "null"] },
+              "r": { "type": ["number", "null"] },
+              "amount": { "type": ["number", "null"] }
+            }
+          }
+        },
+        "filters": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "type": { "type": "string" },
+              "cutoff": { "type": "number" },
+              "res": { "type": "number" }
+            }
+          }
+        },
+        "mods": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["type", "src", "dst", "amount"],
+            "properties": {
+              "type": { "type": "string", "enum": ["fm", "rm"] },
+              "src": { "type": "string" },
+              "dst": { "type": "string" },
+              "amount": { "type": "number" }
+            }
+          }
+        },
+        "routes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["srcKind", "srcId", "dstKind", "dstId", "volume"],
+            "properties": {
+              "srcKind": { "type": "string", "enum": ["op", "filter"] },
+              "srcId": { "type": "string" },
+              "dstKind": { "type": "string", "enum": ["filter", "out"] },
+              "dstId": { "type": "string" },
+              "volume": { "type": "number" }
+            }
+          }
+        }
+      }
+    },
+    "channel": {
+      "type": "object",
+      "required": ["id", "name", "generatorId", "generatorParams", "gain", "pan", "mute", "solo", "stepPitch", "steps", "pianoNotes"],
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "actorLane": {
+          "type": "string",
+          "description": "Mixer / bus grouping; empty = infer from coDjMeta or 'local'"
+        },
+        "deck": {
+          "type": "string",
+          "enum": ["live", "local"],
+          "description": "live = PA deck; local = cue/prep deck (see transportMainDeck for which is heard)"
+        },
+        "generatorId": {
+          "type": "string",
+          "description": "Instrument plugin id: basicOsc | noiseBurst | fmTone | matrixFm | …"
+        },
+        "generatorParams": {
+          "type": "object",
+          "description": "Per-generator patch AND envelope; shape depends on generatorId. ADSR (attack/decay/sustain/release) lives HERE, not on the channel root. See docs/GENERATORS.md"
+        },
+        "waveform": { "type": "string", "description": "Legacy v1; migrated into basicOsc.generatorParams.waveform" },
+        "gain": { "type": "number", "description": "Track trim (linear), pre-fader" },
+        "eqLo": { "type": "number", "description": "Track EQ lowshelf gain dB" },
+        "eqMid": { "type": "number", "description": "Track EQ mid peaking gain dB" },
+        "eqHi": { "type": "number", "description": "Track EQ highshelf gain dB" },
+        "sessionClips": {
+          "type": "array",
+          "description": "Named patterns for Session view / deck clip blocks; main clip id is {channelId}_main",
+          "items": { "$ref": "#/$defs/sessionClip" }
+        },
+        "tplLoopBars": {
+          "type": ["integer", "null"],
+          "description": "Finite bar repeat cap from deck (* N / loops N); null = infinite"
+        },
+        "pan": { "type": "number" },
+        "mute": { "type": "boolean" },
+        "solo": { "type": "boolean" },
+        "filterCutoff": { "type": "number" },
+        "filterQ": { "type": "number" },
+        "stepPitch": { "type": "integer" },
+        "steps": { "type": "array", "minItems": 16, "maxItems": 16 },
+        "pianoNotes": { "type": "array" },
+        "generatorSpec": {
+          "description": "Heavy generator graph/raw (deck gen_block); optional",
+          "oneOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "required": ["kind", "version", "raw"],
+              "properties": {
+                "kind": { "type": "string" },
+                "tplHeaderId": { "type": "string" },
+                "version": { "type": "integer" },
+                "raw": {
+                  "type": "array",
+                  "items": { "type": "string" },
+                  "description": "Original gen_block body lines (round-trip)"
+                },
+                "graph": {
+                  "oneOf": [{ "$ref": "#/$defs/matrixFmGraph" }, { "type": "object" }]
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,223 @@
+// Apply deck from an actor with ownership / master-lock rules.
+
+import { makeChannel, defaultParamsForGeneratorId } from '../model/Project.tish'
+import { parseProgram } from '../deckfile/Parser.tish'
+import {
+  applyTrackBody,
+  applyAutos,
+  applySessionClipBlocks,
+  applySessionGrid,
+  applyMasterMixFromTokens,
+  applyActorMixRows
+} from '../deckfile/Apply.tish'
+import { ensureProjectSession, normalizeSongEntries, normalizeFollow } from '../model/Session.tish'
+import { lookupMacro, expandMacroBody } from '../deckfile/Macros.tish'
+import { tplLoopResetChannel } from '../deckfile/LoopState.tish'
+import { findChannelById } from '../deckfile/Apply.tish'
+import { ensureCoDjMeta, setTrackOwner, setTrackTouched } from './CoDjMeta.tish'
+import { skillIdsAllowMaster } from './Skills.tish'
+import { applyDeckMixParsed } from '../model/DeckRouting.tish'
+
+export fn actorMayEditTrack(project, channelId, actorId, isNewTrack) {
+  ensureCoDjMeta(project)
+  let t = project.coDjMeta.tracks[channelId]
+  if (!t) {
+    return isNewTrack
+  }
+  if (t.masterLock) {
+    return false
+  }
+  if (t.ownerActorId === actorId) {
+    return true
+  }
+  return false
+}
+
+/**
+ * True if this lane carries master rights (bpm / autos / scenes / clips).
+ * Prefer the actor's declared skillIds; fall back to the legacy actorId substring check
+ * only when skillIds are absent (e.g. a message that predates skill stamping).
+ */
+export fn laneCanMaster(actorId, skillIds) {
+  if (Array.isArray(skillIds)) {
+    return skillIdsAllowMaster(skillIds)
+  }
+  if (!actorId || typeof actorId !== "string") return false
+  return actorId.indexOf("human") >= 0
+}
+
+export fn applyCoDjTplSource(project, source, actorId, authorId, currentPerfStep, skillIds) {
+  ensureCoDjMeta(project)
+  let perfStep = currentPerfStep
+  if (perfStep === undefined || perfStep === null) {
+    perfStep = 0
+  }
+  let canMaster = laneCanMaster(actorId, skillIds)
+  let parsed = parseProgram(source)
+  let errs = parsed.errors
+  if (canMaster && parsed.bpm !== null && parsed.bpm >= 40 && parsed.bpm <= 300) {
+    project.bpm = parsed.bpm
+  }
+  if (canMaster && parsed.launchQuant !== null && parsed.launchQuant !== undefined) {
+    let lq = Math.floor(Number(parsed.launchQuant))
+    if (lq >= 1 && lq <= 256 && lq === lq) {
+      project.launchQuant = lq
+    }
+  }
+  if (canMaster && parsed.songSeed !== null && parsed.songSeed !== undefined) {
+    let ss = Math.floor(Number(parsed.songSeed))
+    if (ss === ss) {
+      project.songSeed = ss
+    }
+  }
+  // Transport-routing globals (master-gated, same as bpm): crossfader, main deck, swing.
+  if (canMaster && parsed.xfade !== null && parsed.xfade !== undefined) {
+    let cx = Number(parsed.xfade.x)
+    let cy = Number(parsed.xfade.y)
+    if (cx === cx) {
+      project.transportCrossfade = cx < 0 ? 0 : (cx > 1 ? 1 : cx)
+    }
+    if (cy === cy) {
+      project.transportCrossfadeY = cy < 0 ? 0 : (cy > 1 ? 1 : cy)
+    }
+  }
+  if (canMaster && parsed.mainDeck !== null && parsed.mainDeck !== undefined) {
+    project.transportMainDeck = parsed.mainDeck === "local" ? "local" : "live"
+  }
+  if (canMaster && parsed.swing !== null && parsed.swing !== undefined) {
+    let sw = Number(parsed.swing)
+    if (sw === sw) {
+      project.swing = sw < 0 ? 0 : (sw > 1 ? 1 : sw)
+    }
+  }
+  // Scale lock is a master-gated global (like bpm/swing) — folds onto every client's pitch snap.
+  if (canMaster && parsed.scaleRoot !== null && parsed.scaleRoot !== undefined) {
+    if (parsed.scaleRoot < 0 || parsed.scaleMode === "off") {
+      project.scaleRoot = null
+      project.scaleMode = null
+    } else {
+      project.scaleRoot = Math.floor(parsed.scaleRoot)
+      project.scaleMode = parsed.scaleMode
+    }
+  }
+  // Per-deck booth EQ + volume — master-gated like the crossfader (a transport/booth global). A follower's
+  // deck.put deck_mix is therefore only folded on the HOST (the master); the host re-snapshots and every
+  // client adopts it. The receiver recomputes the per-channel eq via applyDeckEq (rt.reconcileDeckMix).
+  if (canMaster && parsed.deckMix !== null && parsed.deckMix !== undefined) {
+    applyDeckMixParsed(project, parsed.deckMix)
+  }
+  let userMacros = parsed.macros ? parsed.macros : {}
+  let ti = 0
+  while (ti < parsed.tracks.length) {
+    let tb = parsed.tracks[ti]
+    let ch = findChannelById(project, tb.id)
+    let isNew = ch === null
+    if (!actorMayEditTrack(project, tb.id, actorId, isNew)) {
+      ti = ti + 1
+      continue
+    }
+    // Macro reference (`gen <name> [overrides]`): expand into a patch gen_block before building,
+    // exactly as the full apply does — otherwise an incremental edit on a macro channel would set
+    // generatorId to the macro token (an unknown generator) and drop the spec, so the next note
+    // falls through to the default oscillator (the "edit chord/cutoff → bass goes silent/wrong,
+    // re-pick the designer to fix" bug). See applyParsed in Apply.tish.
+    let macroName = null
+    let mac = lookupMacro(tb.rawGenId, userMacros)
+    if (mac) {
+      let body = expandMacroBody(mac, tb.genParams)
+      tb.genBlocks.push({ generatorId: "patch", lines: body })
+      tb.generatorId = "patch"
+      macroName = tb.rawGenId
+    }
+    if (!ch) {
+      ch = makeChannel(tb.id, tb.name, 36, tb.generatorId)
+      project.channels.push(ch)
+      setTrackOwner(project, tb.id, actorId, authorId)
+    } else {
+      ch.name = tb.name
+      if (canMaster) {
+        setTrackOwner(project, tb.id, actorId, authorId)
+      }
+    }
+    ch.macroName = macroName
+    ch.macroParams = mac ? tb.genParams : null
+    if (ch.generatorId !== tb.generatorId) {
+      ch.generatorId = tb.generatorId
+      ch.generatorParams = defaultParamsForGeneratorId(tb.generatorId)
+    }
+    setTrackTouched(project, tb.id, perfStep)
+    let hdrLoop = tb.loopBars
+    if (hdrLoop === undefined) {
+      hdrLoop = null
+    }
+    applyTrackBody(project, ch, tb.body, tb.genBlocks, errs, hdrLoop)
+    tplLoopResetChannel(tb.id)
+    ti = ti + 1
+  }
+  // Track removals (`remove_track <id>`): splice each channel the actor may delete — an owner deletes its own,
+  // a master deletes anything. Pure document mutation; the caller (App.tish onDeleteTrack) rebuilds audio buses
+  // since a splice misaligns the index-keyed bus array. coDjMeta for removed ids is dropped (mirrors Prune).
+  let rmIds = parsed.removeTrackIds ? parsed.removeTrackIds : []
+  let removedIds = []
+  let rmi = 0
+  while (rmi < rmIds.length) {
+    let rmId = rmIds[rmi]
+    if (actorMayEditTrack(project, rmId, actorId, false) || canMaster) {
+      let idx = -1
+      let ci = 0
+      while (ci < project.channels.length) {
+        if (project.channels[ci].id === rmId) {
+          idx = ci
+        }
+        ci = ci + 1
+      }
+      if (idx >= 0) {
+        project.channels.splice(idx, 1)
+        removedIds.push(rmId)
+      }
+    }
+    rmi = rmi + 1
+  }
+  if (removedIds.length > 0 && project.coDjMeta && project.coDjMeta.tracks) {
+    let newTracks = {}
+    let keys = Object.keys(project.coDjMeta.tracks)
+    let ki = 0
+    while (ki < keys.length) {
+      let key = keys[ki]
+      let drop = false
+      let di = 0
+      while (di < removedIds.length) {
+        if (removedIds[di] === key) {
+          drop = true
+        }
+        di = di + 1
+      }
+      if (!drop) {
+        newTracks[key] = project.coDjMeta.tracks[key]
+      }
+      ki = ki + 1
+    }
+    project.coDjMeta.tracks = newTracks
+  }
+  if (canMaster) {
+    applySessionClipBlocks(project, parsed.clipBlocks ? parsed.clipBlocks : [], errs)
+    applySessionGrid(project, parsed.sessionSceneCount, parsed.sessionSlots ? parsed.sessionSlots : [])
+    ensureProjectSession(project)
+    if (parsed.song !== null && parsed.song !== undefined) {
+      project.session.song = normalizeSongEntries(project, parsed.song)
+    }
+    if (parsed.follow !== null && parsed.follow !== undefined) {
+      project.session.follow = normalizeFollow(project, parsed.follow)
+    }
+    applyAutos(project, parsed.autos)
+    // Master/actor mix are master-gated globals — apply them here too, mirroring the full applyParsed,
+    // so UI edits (master EQ, the compressor/reverb toggles, actor faders) actually fold through ingest.
+    if (parsed.masterMixTokens !== null && parsed.masterMixTokens !== undefined) {
+      applyMasterMixFromTokens(project, parsed.masterMixTokens)
+    }
+    if (parsed.actorMixRows && parsed.actorMixRows.length > 0) {
+      applyActorMixRows(project, parsed.actorMixRows)
+    }
+  }
+  return { errors: errs, applied: true }
+}
