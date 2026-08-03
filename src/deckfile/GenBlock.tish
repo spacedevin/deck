@@ -13,7 +13,7 @@ export fn registerGenBlockDialect(ids, parseFn) {
   if (typeof ids === "string") {
     list = [ids]
   }
-  if (!list) {
+  if (!(list && typeof list.length === "number")) {
     return
   }
   let i = 0

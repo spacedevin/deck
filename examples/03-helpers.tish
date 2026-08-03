@@ -1,0 +1,35 @@
+// Example 03 — helpers: format, scale, bars, euclid, highlight
+import {
+  formatTplBeat,
+  formatTplFloat,
+  parseScaleRoot,
+  scaleModeNames,
+  scaleIntervals,
+  parseBarSelector,
+  barSelectorMatches,
+  euclideanPattern,
+  classifyLine,
+  isStepToken
+} from "../src/index.tish"
+
+console.log("beat:", formatTplBeat(1.5), "float:", formatTplFloat(0.12345))
+console.log("root F#:", parseScaleRoot("F#"), "modes:", scaleModeNames().length)
+console.log("dorian intervals:", scaleIntervals("dorian").join(","))
+
+let even = parseBarSelector("even")
+console.log("bar even matches 0?", barSelectorMatches(even, 0), "1?", barSelectorMatches(even, 1))
+
+let hits = euclideanPattern(5, 16)
+let on = 0
+let i = 0
+while (i < hits.length) {
+  if (hits[i]) {
+    on = on + 1
+  }
+  i = i + 1
+}
+console.log("euclid 5/16 hits:", on)
+
+let steps = classifyLine("steps x . x .")
+console.log("classify:", steps.kind, "stepIndices:", steps.stepIndices.join(","), "x?", isStepToken("x"))
+console.log("ok — 03-helpers")

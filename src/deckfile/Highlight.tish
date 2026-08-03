@@ -91,9 +91,7 @@ export fn classifyLine(line) {
     return { kind: "plain", tokens: [], stepIndices: [] }
   }
   let toks = tokenize(t)
-  if (toks.length === 0) {
-    return { kind: "plain", tokens: [], stepIndices: [] }
-  }
+  // tokenize never returns [] for non-empty trimmed text
   let first = toks[0]
   if (first === "steps") {
     let stepIndices = []

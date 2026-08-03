@@ -26,21 +26,36 @@
     },
     "./grammar": "./docs/DECK_GRAMMAR.md",
     "./extension": "./docs/DECK_EXTENSION.md",
+    "./host": "./docs/HOST.md",
     "./package.json": "./package.json"
   },
   "files": [
     "src/",
     "dist/",
     "docs/",
+    "examples/",
+    "fixtures/",
     "README.md",
+    "AGENTS.md",
     "LICENSE"
   ],
   "scripts": {
     "build": "tish build src/index.tish -o dist/deck.js --target js && node scripts/append-exports.mjs",
     "tishversion": "tish -V",
-    "test": "tish build --target js test/smoke.tish -o /tmp/spacedevin-deck-smoke.js && node /tmp/spacedevin-deck-smoke.js",
+    "test": "npm run build && node test/coverage.mjs && tish build --target js test/smoke.tish -o /tmp/spacedevin-deck-smoke.js && node /tmp/spacedevin-deck-smoke.js",
+    "test:coverage": "npm run build && c8 --check-coverage --lines 100 --functions 100 --statements 100 --include 'dist/deck.js' node test/coverage.mjs",
+    "examples": "tish build --target js examples/01-parse.tish -o /tmp/deck-ex01.js && node /tmp/deck-ex01.js && tish build --target js examples/02-host-boot.tish -o /tmp/deck-ex02.js && node /tmp/deck-ex02.js && tish build --target js examples/03-helpers.tish -o /tmp/deck-ex03.js && node /tmp/deck-ex03.js",
     "prepack": "npm run build",
     "prepublishOnly": "npm run build"
+  },
+  "c8": {
+    "reporter": [
+      "text",
+      "text-summary"
+    ],
+    "include": [
+      "dist/deck.js"
+    ]
   },
   "engines": {
     "node": ">=22"
@@ -61,6 +76,7 @@
     "@semantic-release/npm": "13.1.5",
     "@semantic-release/release-notes-generator": "14.1.0",
     "@tishlang/tish": "^2.43.0",
+    "c8": "^10.1.3",
     "semantic-release": "25.0.3"
   }
 }

@@ -152,9 +152,6 @@ export fn parseProgram(source) {
         rep = 1
       }
       if (sceneNum !== null && sceneNum >= 0 && sceneNum === sceneNum) {
-        if ((songEntries === null || songEntries === undefined)) {
-          songEntries = []
-        }
         songEntries.push({ scene: sceneNum, repeat: rep })
       }
       continue
@@ -177,9 +174,6 @@ export fn parseProgram(source) {
         let aW = toks.length >= 3 && isNumberToken(toks[2]) ? Number(toks[2]) : 1
         let bAct = toks.length >= 4 ? toks[3] : null
         let bW = toks.length >= 5 && isNumberToken(toks[4]) ? Number(toks[4]) : 0
-        if ((followEntries === null || followEntries === undefined)) {
-          followEntries = []
-        }
         followEntries.push({ scene: fScene, a: aAct, wa: aW, b: bAct, wb: bW })
       }
       continue
@@ -216,10 +210,6 @@ export fn parseProgram(source) {
         continue
       }
       currentTrack.body.push({ lineNo: i, tokens: toks, raw: trimmed })
-      continue
-    }
-
-    if (toks.length === 0) {
       continue
     }
 

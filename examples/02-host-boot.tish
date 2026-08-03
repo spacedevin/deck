@@ -1,0 +1,60 @@
+// Example 02 — host boot order (see docs/HOST.md)
+import {
+  parseProgram,
+  parseGenBlock,
+  registerGeneratorIdAliases,
+  clearGeneratorIdAliases,
+  registerGenBlockDialect,
+  clearGenBlockDialects,
+  registerHighlightKeywords,
+  registerBuiltinMacros,
+  clearBuiltinMacros,
+  lookupMacro,
+  expandMacroBody,
+  isKeyword,
+  normalizeGeneratorId,
+  generatorIdToDeck
+} from "../src/index.tish"
+
+clearGeneratorIdAliases()
+clearGenBlockDialects()
+clearBuiltinMacros()
+
+registerGeneratorIdAliases(
+  { matrix_fm: "matrixFm", noise_burst: "noiseBurst" },
+  { matrixFm: "matrix_fm", noiseBurst: "noise_burst" }
+)
+
+registerGenBlockDialect(["patch", "modular"], (generatorId, lines) => {
+  return {
+    kind: "patch",
+    tplHeaderId: generatorId,
+    version: 1,
+    raw: lines,
+    graph: { lineCount: lines.length }
+  }
+})
+
+registerHighlightKeywords({
+  body: ["osc", "conn", "env", "op", "mod", "route"]
+})
+
+registerBuiltinMacros({
+  soft_kick: {
+    params: { tone: 0.2 },
+    body: ["osc o1 sine note", "gain a1 $tone", "conn o1 a1 1", "conn a1 out 1"]
+  }
+})
+
+console.log("alias forward:", normalizeGeneratorId("matrix_fm"))
+console.log("alias emit:", generatorIdToDeck("matrixFm"))
+console.log("dialect kind:", parseGenBlock("patch", ["osc o1"]).kind)
+console.log("highlight conn:", isKeyword("conn"))
+
+let macro = lookupMacro("soft_kick", {})
+let expanded = expandMacroBody(macro, { tone: 0.4 })
+console.log("macro lines:", expanded.length, "→", expanded[1])
+
+let ast = parseProgram("deck 1\nbpm 100\ntrack K id c0 gen noise_burst\n  steps x . . .\n")
+console.log("parsed gen:", ast.tracks[0].generatorId)
+console.log("ok — 02-host-boot")

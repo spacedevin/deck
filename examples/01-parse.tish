@@ -1,0 +1,17 @@
+// Example 01 — parse a mini .deck program
+import { parseProgram, tokenize } from "../src/index.tish"
+
+let source = `deck 1
+bpm 120
+# comment ignored
+track Kick id c0 gen noise_burst
+  mix gain 0.9 pan 0
+  steps x . . . x . . . x . . . x . . .
+`
+
+console.log("tokens:", tokenize("bpm 120").join(" | "))
+let ast = parseProgram(source)
+console.log("version:", ast.tplVersion, "bpm:", ast.bpm)
+console.log("tracks:", ast.tracks.length, "first id:", ast.tracks[0].id)
+console.log("errors:", ast.errors.length)
+console.log("ok — 01-parse")
