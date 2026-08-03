@@ -110,10 +110,20 @@ fn pinned_divergences() {
 
     let p = deckfile::parse(&read("002-track-header", "deck"));
     let names: Vec<&str> = p.tracks.iter().map(|t| t.name.as_str()).collect();
-    assert_eq!(names, ["MOS 6581", "Bass", "Pad", "Lead"], "multi-word names");
+    assert_eq!(
+        names,
+        ["MOS 6581", "Bass", "Pad", "Lead", "Layered", "Mixed"],
+        "multi-word names"
+    );
     assert_eq!(p.tracks[1].loop_bars, Some(2), "`* 2`");
     assert_eq!(p.tracks[2].loop_bars, None, "`* inf` clears the length, it is not an error");
     assert_eq!(p.tracks[3].gen_params.num("cutoff"), Some(1200.0), "macro param override");
+    // `* N` after other params. This is the case that silently played at 1 bar instead of 16 and
+    // made two of tish-gba's songs bake differently.
+    assert_eq!(p.tracks[4].loop_bars, Some(16), "`* N` after a key/value pair");
+    assert_eq!(p.tracks[4].gen_params.num("layer"), Some(0.0), "params survive alongside a late `* N`");
+    assert_eq!(p.tracks[5].loop_bars, Some(4), "`* N` between key/value pairs");
+    assert_eq!(p.tracks[5].gen_params.num("cutoff"), Some(900.0), "params on both sides of `* N`");
 
     let p = deckfile::parse(&read("003-steps-and-locks", "deck"));
     let steps = p.tracks[0]

@@ -7,4 +7,8 @@ track Pad id c4 gen fm * inf
   mix gain 0.5
 track Lead id c5 gen mymacro cutoff 1200 wave saw
   mix gain 0.7
+track Layered id c6 gen fm layer 0 * 16
+  mix gain 0.6
+track Mixed id c7 gen fm layer 2 * 4 cutoff 900
+  mix gain 0.6
 remove_track obsolete

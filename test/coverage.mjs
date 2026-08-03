@@ -373,6 +373,35 @@ check("directives no errors", dir.errors.length === 0)
 check("directives do not block parse", dir.bpm === 120)
 check("bare @ errors", parseProgram("@\n").errors.some((e) => e.msg.includes("directive verb")))
 
+// ── Track header: `* N` and key/value params in any order ────────────────────
+// `* N` was only recognized in the first slot; anywhere else it became a param literally named `*`,
+// so the pattern length silently became 1.
+const hdr = (s) => parseProgram(s).tracks[0]
+check("star first", hdr("track P id p gen g * 16 layer 0\n").loopBars === 16)
+check("star last", hdr("track P id p gen g layer 0 * 16\n").loopBars === 16)
+check("star middle", hdr("track P id p gen g layer 0 * 4 cutoff 900\n").loopBars === 4)
+check("star last keeps params", hdr("track P id p gen g layer 0 * 16\n").genParams.layer === 0)
+check("star middle keeps params", hdr("track P id p gen g layer 0 * 4 cutoff 900\n").genParams.cutoff === 900)
+check("star is not a param", hdr("track P id p gen g layer 0 * 16\n").genParams["*"] === undefined)
+check("inf last", hdr("track P id p gen g layer 2 * inf\n").loopBars === null)
+check("infinite last", hdr("track P id p gen g layer 2 * infinite\n").loopBars === null)
+check("no star", hdr("track P id p gen g layer 0\n").loopBars === null)
+// A `*` that names no length is an error, not a silently dropped token.
+check(
+  "star zero errors",
+  parseProgram("track P id p gen g layer 0 * 0\n").errors.some((e) => e.msg.includes("positive integer"))
+)
+check(
+  "star non-numeric errors",
+  parseProgram("track P id p gen g layer 0 * zz\n").errors.some((e) => e.msg.includes("inf/infinite"))
+)
+check(
+  "bare trailing star errors",
+  parseProgram("track P id p gen g layer 0 *\n").errors.some((e) => e.msg.includes("inf/infinite"))
+)
+// An odd trailing token (no value) is skipped rather than looping forever.
+check("odd trailing token", hdr("track P id p gen g layer 0 dangling\n").genParams.layer === 0)
+
 // ── Body lines ────────────────────────────────────────────────────────────────
 const body = (s) => parseBodyLine(tokenize(s))
 
