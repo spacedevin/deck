@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "type": "module",
   "description": ".deck language only \u2014 tokenize, parse, format, registries, highlight classify",
-  "license": "MIT",
+  "license": "PIF",
   "author": "spacedevin",
   "repository": {
     "type": "git",
