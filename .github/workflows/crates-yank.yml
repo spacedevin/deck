@@ -54,10 +54,23 @@ jobs:
             exit 1
           fi
           if [ "${{ inputs.undo }}" = "true" ]; then
-            cargo yank --undo --version "${{ inputs.version }}" deckfile
+            cargo yank --undo --version "${{ inputs.version }}" deckfile 2>&1 | tee out.log
           else
-            cargo yank --version "${{ inputs.version }}" deckfile
+            cargo yank --version "${{ inputs.version }}" deckfile 2>&1 | tee out.log
           fi
+          rc=${PIPESTATUS[0]}
+          # crates.io scopes yank separately from publishing, so the token that releases this crate
+          # is NOT automatically allowed to yank it — and the raw error does not say which scope is
+          # missing.
+          if [ $rc -ne 0 ] && grep -q "does not have the required permissions" out.log; then
+            echo ""
+            echo "The CARGO_REGISTRY_TOKEN secret lacks the 'yank' scope."
+            echo "Publishing and yanking are separate scopes on crates.io, so a publish token cannot yank."
+            echo "Fix: https://crates.io/settings/tokens — create a token with the 'yank' scope"
+            echo "(keep 'publish-new' + 'publish-update' if the same token is used for releases),"
+            echo "then update the CARGO_REGISTRY_TOKEN repository secret."
+          fi
+          exit $rc
 
       - name: Report
         run: |
