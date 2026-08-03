@@ -44,6 +44,23 @@ npm run examples
 
 Apply/emit to project IR · session/co-DJ · audio engines · instrument catalogs · builtin macro catalogs · HTML highlight CSS · graph editor mutators.
 
+## Rust
+
+The same `src/index.tish` also emits a Rust library crate, so a Rust consumer (tish-gba's build-time
+bake) parses `.deck` with this parser rather than its own:
+
+```bash
+npm run build:rust   # -> crate/  (crates.io: `deckfile`)
+npm run test:rust    # the same conformance corpus, from Rust
+```
+
+```rust
+let program = deckfile::parse(src);          // typed
+let ast = deckfile::parseProgram(value);     // the raw AST, same shape as JS
+```
+
+One source, three targets — Tish, JS, Rust — checked against one corpus.
+
 ## Docs
 
 - **[Language grammar](docs/DECK_GRAMMAR.md)** — canonical `.deck` surface

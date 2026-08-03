@@ -49,7 +49,9 @@
     "test:coverage": "npm run build && c8 --check-coverage --lines 100 --functions 100 --statements 100 --include 'dist/deck.js' node test/coverage.mjs",
     "examples": "tish build --target js examples/01-parse.tish -o /tmp/deck-ex01.js && node /tmp/deck-ex01.js && tish build --target js examples/02-host-boot.tish -o /tmp/deck-ex02.js && node /tmp/deck-ex02.js && tish build --target js examples/03-helpers.tish -o /tmp/deck-ex03.js && node /tmp/deck-ex03.js",
     "prepack": "npm run build",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run build",
+    "build:rust": "node scripts/build-rust.mjs",
+    "test:rust": "npm run build:rust && cd crate && cargo test"
   },
   "c8": {
     "reporter": [
