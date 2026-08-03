@@ -85,6 +85,51 @@
           }
         ],
         "genBlocks": []
+      },
+      {
+        "name": "Layered",
+        "id": "c6",
+        "generatorId": "fm",
+        "rawGenId": "fm",
+        "genParams": {
+          "layer": 0
+        },
+        "loopBars": 16,
+        "body": [
+          {
+            "lineNo": 11,
+            "tokens": [
+              "mix",
+              "gain",
+              "0.6"
+            ],
+            "raw": "mix gain 0.6"
+          }
+        ],
+        "genBlocks": []
+      },
+      {
+        "name": "Mixed",
+        "id": "c7",
+        "generatorId": "fm",
+        "rawGenId": "fm",
+        "genParams": {
+          "layer": 2,
+          "cutoff": 900
+        },
+        "loopBars": 4,
+        "body": [
+          {
+            "lineNo": 13,
+            "tokens": [
+              "mix",
+              "gain",
+              "0.6"
+            ],
+            "raw": "mix gain 0.6"
+          }
+        ],
+        "genBlocks": []
       }
     ],
     "removeTrackIds": [
@@ -176,6 +221,40 @@
           "eqMid": null,
           "eqHi": null,
           "lineNo": 9
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "c6",
+      "rows": [
+        {
+          "kind": "mix",
+          "gain": 0.6,
+          "pan": null,
+          "mute": null,
+          "solo": null,
+          "eqLo": null,
+          "eqMid": null,
+          "eqHi": null,
+          "lineNo": 11
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "c7",
+      "rows": [
+        {
+          "kind": "mix",
+          "gain": 0.6,
+          "pan": null,
+          "mute": null,
+          "solo": null,
+          "eqLo": null,
+          "eqMid": null,
+          "eqHi": null,
+          "lineNo": 13
         }
       ],
       "errors": []

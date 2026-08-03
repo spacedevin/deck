@@ -72,6 +72,7 @@ track <displayName> id <channelId> gen <generatorId|macro> [ * <N|inf> ] [ <para
 
 - `* N` — **pattern length** in bars (default 1). Channel spans `N × 16` steps and repeats. `* inf` / `* infinite` clears an explicit finite length.
 - Trailing `key value` pairs — **macro parameter overrides** when `gen` is a macro name.
+- `* N` and the `key value` pairs may appear in **any order** after `gen <id>`. Emit writes `* N` first; a `*` that names no valid length is an error, never a silently dropped token.
 - `generatorId` spellings are host-registered (`registerGeneratorIdAliases`). Undeclared ids pass through as-is.
 
 ---

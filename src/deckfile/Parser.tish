@@ -456,37 +456,47 @@ export fn parseProgram(source) {
         }
       }
       if (idIdx >= 2 && toks.length >= idIdx + 4) {
+        // Everything after `gen <id>` is `* <N|inf>` (pattern length) plus `key value` pairs (macro
+        // parameter overrides), in ANY order.
+        //
+        // `* N` used to be recognized only in the first slot. Anywhere else it fell through to the
+        // key/value loop and became a param literally named `*` — so `track Pad id pad gen x layer 0
+        // * 16` silently lost its length and played as one bar, with no error. Emit always writes
+        // `* N` first, but hand-written and generated files do not, and a length that quietly
+        // becomes 1 is the worst kind of wrong.
         let after = idIdx + 4
         let loopBars = null
-        if (toks.length >= after + 2 && toks[after] === "*") {
-          let lx = toks[after + 1]
-          if (lx === "inf" || lx === "infinite") {
-            loopBars = null
-          } else {
-            if (isNumberToken(lx)) {
-              let nn = Math.floor(Number(lx))
-              if (nn >= 1) {
-                loopBars = nn
+        let genParams = {}
+        let gp = after
+        while (gp < toks.length) {
+          if (toks[gp] === "*") {
+            if (gp + 1 < toks.length) {
+              let lx = toks[gp + 1]
+              if (lx === "inf" || lx === "infinite") {
+                loopBars = null
+              } else if (isNumberToken(lx)) {
+                let nn = Math.floor(Number(lx))
+                if (nn >= 1) {
+                  loopBars = nn
+                } else {
+                  errors.push({ line: i, msg: "track * N: N must be a positive integer" })
+                }
               } else {
-                errors.push({ line: i, msg: "track * N: N must be a positive integer" })
+                errors.push({ line: i, msg: "track * N: expected number or inf/infinite" })
               }
             } else {
               errors.push({ line: i, msg: "track * N: expected number or inf/infinite" })
             }
+            gp = gp + 2
+          } else if (gp + 1 < toks.length) {
+            let k = toks[gp]
+            let v = toks[gp + 1]
+            let nv = Number(v)
+            genParams[k] = (nv === nv && v.length > 0) ? nv : v
+            gp = gp + 2
+          } else {
+            gp = gp + 1
           }
-        }
-        // Trailing `key value` pairs after the gen id (and optional `* N`) are macro parameter overrides.
-        let genParams = {}
-        let gp = after
-        if (toks.length >= after + 2 && toks[after] === "*") {
-          gp = after + 2
-        }
-        while (gp + 1 < toks.length) {
-          let k = toks[gp]
-          let v = toks[gp + 1]
-          let nv = Number(v)
-          genParams[k] = (nv === nv && v.length > 0) ? nv : v
-          gp = gp + 2
         }
         currentTrack = {
           name: toks.slice(1, idIdx).join(" "),
