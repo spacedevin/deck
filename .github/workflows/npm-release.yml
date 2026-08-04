@@ -14,11 +14,20 @@ name: NPM release
 on:
   release:
     types: [published, edited]
+  # Re-dispatch to publish a release the event never reached — promoting a prerelease does not
+  # always fire `edited`, and without this the only recovery is editing the release again and hoping.
+  # Publishing is idempotent: a version already on npm is skipped rather than failing.
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to publish, e.g. v1.2.6"
+        required: true
+        type: string
 
 jobs:
   publish:
     name: Publish to npm
-    if: github.event.release.prerelease == false
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.release.prerelease == false }}
     runs-on: ubuntu-latest
     permissions:
       contents: write   # required to update release body via API
@@ -31,8 +40,25 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: refs/tags/${{ github.event.release.tag_name }}
+          ref: refs/tags/${{ github.event.release.tag_name || inputs.tag }}
           fetch-depth: 0
+
+      - name: Resolve the release
+        id: rel
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ github.event.release.tag_name || inputs.tag }}"
+          # `github.event.release.id` is empty on a workflow_dispatch, so look it up by tag — which
+          # also works for the release event and keeps one code path.
+          ID=$(curl -sL -H "Authorization: Bearer $GITHUB_TOKEN" \
+            "https://api.github.com/repos/${{ github.repository }}/releases/tags/$TAG" | jq -r '.id')
+          if [ -z "$ID" ] || [ "$ID" = "null" ]; then
+            echo "No release found for tag $TAG"
+            exit 1
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "id=$ID" >> "$GITHUB_OUTPUT"
 
       - name: Download npm package tarball from release
         env:
@@ -45,7 +71,7 @@ jobs:
           for attempt in 1 2 3 4 5 6 7 8 9 10; do
             DECK_URL=$(curl -sL -H "Authorization: Bearer $GITHUB_TOKEN" \
               -H "Accept: application/vnd.github+json" \
-              "https://api.github.com/repos/${{ github.repository }}/releases/${{ github.event.release.id }}/assets?per_page=100" \
+              "https://api.github.com/repos/${{ github.repository }}/releases/${{ steps.rel.outputs.id }}/assets?per_page=100" \
               | jq -r '.[] | select(.name == "spacedevin-deck-npm-package.tgz" and .state == "uploaded") | .url')
             [ -n "$DECK_URL" ] && [ "$DECK_URL" != "null" ] && break
             echo "tarball not uploaded yet (attempt $attempt/10) — waiting 30s"
@@ -76,10 +102,10 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          TAG="${{ github.event.release.tag_name }}"
+          TAG="${{ steps.rel.outputs.tag }}"
           VERSION="${TAG#v}"
           NPM_URL="https://www.npmjs.com/package/@spacedevin/deck/v/${VERSION}"
-          RELEASE_ID="${{ github.event.release.id }}"
+          RELEASE_ID="${{ steps.rel.outputs.id }}"
           REPO="${{ github.repository }}"
           CURRENT_BODY=$(curl -s -H "Authorization: Bearer $GITHUB_TOKEN" \
             "https://api.github.com/repos/${REPO}/releases/${RELEASE_ID}" | jq -r '.body // ""')
