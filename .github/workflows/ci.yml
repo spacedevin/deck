@@ -29,8 +29,13 @@ jobs:
       - name: Run tests with coverage
         run: npm run test:coverage
 
-      - name: Conformance corpus
+      - name: Conformance corpus (JS)
         run: npm run test:conformance
+
+      # The third target. The JS build and the Rust crate were both checked against the corpus; the
+      # Tish source itself was not, so "one source, three targets" had a leg missing.
+      - name: Conformance corpus (Tish)
+        run: npm run test:conformance:tish
 
       - name: Examples
         run: npm run examples
