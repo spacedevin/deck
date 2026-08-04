@@ -1,0 +1,85 @@
+# Unpublish a version of @spacedevin/deck from npm.
+#
+# Unlike crates.io, npm has no yank — a version is either published or gone. Unpublishing is
+# PERMANENT and that exact version number can never be reused, so this is deliberately a manual
+# dispatch, one version at a time, and it refuses to remove the version `latest` points at.
+#
+# AUTH: npm does not allow unpublish over OIDC trusted publishing — that covers publish only — so
+# this needs an automation token in the NPM_TOKEN secret. Create one at
+# npmjs.com > Access Tokens > Granular Access Token with read/write on @spacedevin/deck.
+#
+#   gh workflow run npm-unpublish.yml -f version=1.2.1
+
+name: Unpublish an npm version
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to unpublish, e.g. 1.2.1"
+        required: true
+        type: string
+      confirm:
+        description: "Type the version again to confirm — this is permanent"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  unpublish:
+    name: Unpublish @spacedevin/deck@${{ inputs.version }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Confirm the version
+        run: |
+          if [ "${{ inputs.version }}" != "${{ inputs.confirm }}" ]; then
+            echo "confirm (${{ inputs.confirm }}) does not match version (${{ inputs.version }})."
+            exit 1
+          fi
+
+      - name: Refuse to unpublish the current release
+        run: |
+          LATEST=$(curl -sf "https://registry.npmjs.org/@spacedevin%2Fdeck" | jq -r '."dist-tags".latest')
+          echo "latest is $LATEST, removing ${{ inputs.version }}"
+          if [ "$LATEST" = "${{ inputs.version }}" ]; then
+            echo "Refusing: that is the version 'latest' points at. Publish a newer one first."
+            exit 1
+          fi
+          if ! curl -sf "https://registry.npmjs.org/@spacedevin%2Fdeck/${{ inputs.version }}" >/dev/null; then
+            echo "${{ inputs.version }} is not on the registry — nothing to do."
+            exit 1
+          fi
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Unpublish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          if [ -z "${NODE_AUTH_TOKEN:-}" ]; then
+            echo "NPM_TOKEN is not set on this repository."
+            echo "npm does not permit unpublish over OIDC — that covers publish only — so this"
+            echo "needs an automation token: npmjs.com > Access Tokens > Granular Access Token"
+            echo "with read/write on @spacedevin/deck."
+            exit 1
+          fi
+          npm unpublish "@spacedevin/deck@${{ inputs.version }}" 2>&1 | tee out.log || rc=$?
+          if [ "${rc:-0}" -ne 0 ]; then
+            echo ""
+            echo "npm refused. Common causes:"
+            echo "  * outside the 72-hour window and the package has dependents or >300 weekly downloads"
+            echo "  * the token lacks write access to the package"
+            echo "Full output is above; npm's policy is at https://docs.npmjs.com/unpublishing-packages-from-the-registry"
+            exit "$rc"
+          fi
+
+      - name: Report
+        run: |
+          curl -s "https://registry.npmjs.org/@spacedevin%2Fdeck" \
+            | jq -r '"remaining: \(.versions | keys | join(", "))  | latest: \(."dist-tags".latest)"'
