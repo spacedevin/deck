@@ -1,0 +1,20 @@
+# Squarely inside the GBA bake's subset: two supported generators, no session/automation/scale.
+deck 1
+bpm 148
+
+track Lead id lead gen gameBoyDmg * 4
+  gen type pulse duty 25 env_mode constant vol 13
+  gen vib_rate 4 vib_amt 6
+  note 60 0 0.25 v 120
+  note 64 0.5 0.25 v 110
+  note 67 1 0.5 v 100
+
+track Bass id bass gen gameBoyDmg
+  gen type wave wave_shape saw vol 15
+  note 36 0 2 v 110
+
+track Kick id kick gen gbaDirectSound * 4
+  gen waveform pulse duty 50 vol 15 bitcrush true pitch_drop -14 pitch_dec 0.05
+  adsr a 0 d 0.1 s 0 r 0.03
+  step_pitch 36
+  steps x . . . x . . . x . . . x . . .

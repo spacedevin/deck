@@ -1,0 +1,363 @@
+{
+  "program": {
+    "tplVersion": 1,
+    "bpm": 148,
+    "tracks": [
+      {
+        "name": "Lead",
+        "id": "lead",
+        "generatorId": "gameBoyDmg",
+        "rawGenId": "gameBoyDmg",
+        "genParams": {},
+        "loopBars": 4,
+        "body": [
+          {
+            "lineNo": 6,
+            "tokens": [
+              "gen",
+              "type",
+              "pulse",
+              "duty",
+              "25",
+              "env_mode",
+              "constant",
+              "vol",
+              "13"
+            ],
+            "raw": "gen type pulse duty 25 env_mode constant vol 13"
+          },
+          {
+            "lineNo": 7,
+            "tokens": [
+              "gen",
+              "vib_rate",
+              "4",
+              "vib_amt",
+              "6"
+            ],
+            "raw": "gen vib_rate 4 vib_amt 6"
+          },
+          {
+            "lineNo": 8,
+            "tokens": [
+              "note",
+              "60",
+              "0",
+              "0.25",
+              "v",
+              "120"
+            ],
+            "raw": "note 60 0 0.25 v 120"
+          },
+          {
+            "lineNo": 9,
+            "tokens": [
+              "note",
+              "64",
+              "0.5",
+              "0.25",
+              "v",
+              "110"
+            ],
+            "raw": "note 64 0.5 0.25 v 110"
+          },
+          {
+            "lineNo": 10,
+            "tokens": [
+              "note",
+              "67",
+              "1",
+              "0.5",
+              "v",
+              "100"
+            ],
+            "raw": "note 67 1 0.5 v 100"
+          }
+        ],
+        "genBlocks": []
+      },
+      {
+        "name": "Bass",
+        "id": "bass",
+        "generatorId": "gameBoyDmg",
+        "rawGenId": "gameBoyDmg",
+        "genParams": {},
+        "loopBars": null,
+        "body": [
+          {
+            "lineNo": 13,
+            "tokens": [
+              "gen",
+              "type",
+              "wave",
+              "wave_shape",
+              "saw",
+              "vol",
+              "15"
+            ],
+            "raw": "gen type wave wave_shape saw vol 15"
+          },
+          {
+            "lineNo": 14,
+            "tokens": [
+              "note",
+              "36",
+              "0",
+              "2",
+              "v",
+              "110"
+            ],
+            "raw": "note 36 0 2 v 110"
+          }
+        ],
+        "genBlocks": []
+      },
+      {
+        "name": "Kick",
+        "id": "kick",
+        "generatorId": "gbaDirectSound",
+        "rawGenId": "gbaDirectSound",
+        "genParams": {},
+        "loopBars": 4,
+        "body": [
+          {
+            "lineNo": 17,
+            "tokens": [
+              "gen",
+              "waveform",
+              "pulse",
+              "duty",
+              "50",
+              "vol",
+              "15",
+              "bitcrush",
+              "true",
+              "pitch_drop",
+              "-14",
+              "pitch_dec",
+              "0.05"
+            ],
+            "raw": "gen waveform pulse duty 50 vol 15 bitcrush true pitch_drop -14 pitch_dec 0.05"
+          },
+          {
+            "lineNo": 18,
+            "tokens": [
+              "adsr",
+              "a",
+              "0",
+              "d",
+              "0.1",
+              "s",
+              "0",
+              "r",
+              "0.03"
+            ],
+            "raw": "adsr a 0 d 0.1 s 0 r 0.03"
+          },
+          {
+            "lineNo": 19,
+            "tokens": [
+              "step_pitch",
+              "36"
+            ],
+            "raw": "step_pitch 36"
+          },
+          {
+            "lineNo": 20,
+            "tokens": [
+              "steps",
+              "x",
+              ".",
+              ".",
+              ".",
+              "x",
+              ".",
+              ".",
+              ".",
+              "x",
+              ".",
+              ".",
+              ".",
+              "x",
+              ".",
+              ".",
+              "."
+            ],
+            "raw": "steps x . . . x . . . x . . . x . . ."
+          }
+        ],
+        "genBlocks": []
+      }
+    ],
+    "removeTrackIds": [],
+    "macros": {},
+    "autos": [],
+    "masterMixTokens": null,
+    "actorMixRows": [],
+    "clipBlocks": [],
+    "sessionSceneCount": null,
+    "sessionSlots": [],
+    "song": null,
+    "follow": null,
+    "launchQuant": null,
+    "songSeed": null,
+    "xfade": null,
+    "mainDeck": null,
+    "swing": null,
+    "scaleRoot": null,
+    "scaleMode": null,
+    "deckMix": null,
+    "directives": [],
+    "hostStatements": {},
+    "errors": []
+  },
+  "trackBodies": [
+    {
+      "id": "lead",
+      "rows": [
+        {
+          "kind": "gen",
+          "params": {
+            "type": "pulse",
+            "duty": 25,
+            "envMode": "constant",
+            "vol": 13
+          },
+          "lineNo": 6
+        },
+        {
+          "kind": "gen",
+          "params": {
+            "vibRate": 4,
+            "vibAmt": 6
+          },
+          "lineNo": 7
+        },
+        {
+          "kind": "note",
+          "midi": 60,
+          "startBeat": 0,
+          "durBeats": 0.25,
+          "vel": 120,
+          "prob": null,
+          "ratchet": null,
+          "nudge": null,
+          "bar": null,
+          "lyric": null,
+          "lineNo": 8
+        },
+        {
+          "kind": "note",
+          "midi": 64,
+          "startBeat": 0.5,
+          "durBeats": 0.25,
+          "vel": 110,
+          "prob": null,
+          "ratchet": null,
+          "nudge": null,
+          "bar": null,
+          "lyric": null,
+          "lineNo": 9
+        },
+        {
+          "kind": "note",
+          "midi": 67,
+          "startBeat": 1,
+          "durBeats": 0.5,
+          "vel": 100,
+          "prob": null,
+          "ratchet": null,
+          "nudge": null,
+          "bar": null,
+          "lyric": null,
+          "lineNo": 10
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "bass",
+      "rows": [
+        {
+          "kind": "gen",
+          "params": {
+            "type": "wave",
+            "waveShape": "saw",
+            "vol": 15
+          },
+          "lineNo": 13
+        },
+        {
+          "kind": "note",
+          "midi": 36,
+          "startBeat": 0,
+          "durBeats": 2,
+          "vel": 110,
+          "prob": null,
+          "ratchet": null,
+          "nudge": null,
+          "bar": null,
+          "lyric": null,
+          "lineNo": 14
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "kick",
+      "rows": [
+        {
+          "kind": "gen",
+          "params": {
+            "waveform": "pulse",
+            "duty": 50,
+            "vol": 15,
+            "bitcrush": "true",
+            "pitchDrop": -14,
+            "pitchDec": 0.05
+          },
+          "lineNo": 17
+        },
+        {
+          "kind": "adsr",
+          "a": 0,
+          "d": 0.1,
+          "s": 0,
+          "r": 0.03,
+          "lineNo": 18
+        },
+        {
+          "kind": "stepPitch",
+          "midi": 36,
+          "bar": null,
+          "lineNo": 19
+        },
+        {
+          "kind": "steps",
+          "mode": "literal",
+          "on": [
+            true,
+            false,
+            false,
+            false,
+            true,
+            false,
+            false,
+            false,
+            true,
+            false,
+            false,
+            false,
+            true,
+            false,
+            false,
+            false
+          ],
+          "lineNo": 20
+        }
+      ],
+      "errors": []
+    }
+  ],
+  "clipBodies": []
+}

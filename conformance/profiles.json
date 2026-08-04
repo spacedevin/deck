@@ -16,16 +16,23 @@
         "008-macros-genblock": "macros and gen_block are not baked",
         "009-directives": "@ directives are live-performance stream lines",
         "010-errors": "error-message text is implementation-specific",
-        "011-golden": "uses generators and sections outside the GBA subset"
+        "011-golden": "uses generators and sections outside the GBA subset",
+        "001-comments-and-sharps": "uses `scale`, which has no GBA meaning (the sharp-name parsing it pins is still exercised by 012)",
+        "002-track-header": "uses `remove_track`, an incremental host edit fragment",
+        "004-notes": "uses `transpose`, applied host-side"
       },
       "mustAccept": [
-        "001-comments-and-sharps",
-        "002-track-header",
-        "004-notes"
+        "012-gba-subset"
       ],
       "extensions": {
-        "topLevel": ["wave"],
-        "body": ["layer", "intensity", "min_intensity"]
+        "topLevel": [
+          "wave"
+        ],
+        "body": [
+          "layer",
+          "intensity",
+          "min_intensity"
+        ]
       }
     }
   }
