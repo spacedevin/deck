@@ -5,9 +5,14 @@ must produce the **same** parse:
 
 | Implementation | Runner |
 |----------------|--------|
-| JS (`dist/deck.js`) | `npm run test:conformance` |
-| Rust (`deckfile` crate, emitted from the same Tish source) | `cargo test` in the crate |
+| **Tish** (`src/index.tish` — the source itself) | `npm run test:conformance:tish` |
+| **JS** (`dist/deck.js`) | `npm run test:conformance` |
+| **Rust** (`deckfile` crate, emitted from the same source) | `cargo test` in the crate |
 | A restricted host (tish-gba) | its own test, against the `gba` profile |
+
+The Tish runner uses `tish run`, not the JS build, because reading the corpus needs `tish:fs` and the
+JS target has no filesystem. It also compares **semantically** — `JSON.stringify` ignores its indent
+argument on that runtime, so a text compare would fail on whitespace while the data matched.
 
 Each case is `NNN-name.deck` plus `NNN-name.expected.json`, which holds the full observable parse:
 

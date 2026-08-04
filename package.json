@@ -43,7 +43,7 @@
   "scripts": {
     "build": "tish build src/index.tish -o dist/deck.js --target js && node scripts/append-exports.mjs",
     "tishversion": "tish -V",
-    "test": "npm run build && node test/coverage.mjs && node test/conformance.mjs && tish build --target js test/smoke.tish -o /tmp/spacedevin-deck-smoke.js && node /tmp/spacedevin-deck-smoke.js",
+    "test": "npm run build && node test/coverage.mjs && node test/conformance.mjs && npm run test:conformance:tish && tish build --target js test/smoke.tish -o /tmp/spacedevin-deck-smoke.js && node /tmp/spacedevin-deck-smoke.js",
     "test:conformance": "npm run build && node test/conformance.mjs",
     "conformance:update": "npm run build && node test/conformance.mjs --update",
     "test:coverage": "npm run build && c8 --check-coverage --lines 100 --functions 100 --statements 100 --include 'dist/deck.js' node test/coverage.mjs",
@@ -51,7 +51,8 @@
     "prepack": "npm run build",
     "prepublishOnly": "npm run build",
     "build:rust": "node scripts/build-rust.mjs",
-    "test:rust": "npm run build:rust && cd crate && cargo test"
+    "test:rust": "npm run build:rust && cd crate && cargo test",
+    "test:conformance:tish": "tish run test/conformance.tish"
   },
   "c8": {
     "reporter": [
