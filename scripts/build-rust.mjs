@@ -135,6 +135,62 @@ fs.mkdirSync(path.join(out, "tests"), { recursive: true })
 fs.copyFileSync(path.join(root, "rust/conformance.rs"), path.join(out, "tests/conformance.rs"))
 fs.cpSync(path.join(root, "conformance"), path.join(out, "conformance"), { recursive: true })
 
+// Expose the corpus as embedded data, not just files on disk.
+//
+// A restricted implementation — tish-gba bakes a subset of the language — has to be able to run the
+// same corpus and prove its `profiles.json` entry is honest: that it accepts everything it does not
+// declare it rejects. It cannot read this crate's files (a dependency's data is not reachable from a
+// consumer), so `include_str!` them and hand them over.
+{
+  const dir = path.join(root, "conformance")
+  const names = fs
+    .readdirSync(dir)
+    .filter((f) => f.endsWith(".deck"))
+    .map((f) => f.replace(/\.deck$/, ""))
+    .sort()
+  const rows = names
+    .map(
+      (n) =>
+        `    Case { name: ${JSON.stringify(n)}, ` +
+        `source: include_str!("../conformance/${n}.deck"), ` +
+        `expected: include_str!("../conformance/${n}.expected.json") },`
+    )
+    .join("\n")
+  fs.writeFileSync(
+    path.join(out, "src/corpus.rs"),
+    `//! The conformance corpus, embedded.
+//!
+//! GENERATED — see the deck repo's scripts/build-rust.mjs.
+//!
+//! Every implementation of the \`.deck\` language runs these same inputs. A consumer that supports a
+//! SUBSET (tish-gba bakes to two sound chips) uses [\`profiles\`] to declare which cases it may reject
+//! and why; anything it does not declare, it must accept and parse identically.
+
+/// One corpus case: the source, and the expected parse as JSON.
+pub struct Case {
+    pub name: &'static str,
+    pub source: &'static str,
+    pub expected: &'static str,
+}
+
+/// Every case, sorted by name.
+pub fn cases() -> &'static [Case] {
+    &CASES
+}
+
+/// \`profiles.json\` verbatim — which cases a restricted profile may reject, and why.
+pub fn profiles() -> &'static str {
+    include_str!("../conformance/profiles.json")
+}
+
+static CASES: [Case; ${names.length}] = [
+${rows}
+];
+`
+  )
+  fs.appendFileSync(libPath, "pub mod corpus;\n")
+}
+
 // Rewrite the generated manifest: real crate name, version tracking the npm package, and the
 // metadata crates.io needs.
 //
