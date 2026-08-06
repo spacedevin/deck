@@ -196,6 +196,11 @@ jobs:
       # The player releases in lockstep: same tag, same version. Its dependency on the language
       # package is `file:../..` so the workspace links locally and CI tests the source in this repo —
       # that has to become the real published version before packing, or the tarball is uninstallable.
+      #
+      # Caret, not an exact pin. `tish build` inlines the parser into dist/deck-player.js, so the
+      # dependency only matters to a consumer compiling from src/index.tish via the `tish` export
+      # condition — and for them a compatible minor is fine. An exact pin would just force npm to
+      # install a second copy alongside a consumer's own @spacedevin/deck.
       - name: Set player version and pin its dependency
         run: |
           node -e "
@@ -203,7 +208,7 @@ jobs:
           const p = './packages/player/package.json';
           const j = JSON.parse(fs.readFileSync(p));
           j.version = process.env.VERSION;
-          j.dependencies['@spacedevin/deck'] = process.env.VERSION;
+          j.dependencies['@spacedevin/deck'] = '^' + process.env.VERSION;
           fs.writeFileSync(p, JSON.stringify(j, null, 2) + '\n');
           "
         env:
