@@ -43,6 +43,12 @@ jobs:
       - name: Build
         run: npm run build
 
+      # The player is the host half: Web Audio, transport, host defaults/clamps. It builds against
+      # the language package IN THIS REPO (a file: link), so a grammar change that breaks playback
+      # fails here rather than after publish.
+      - name: Player (@spacedevin/deck-player)
+        run: npm test -w @spacedevin/deck-player
+
   # The Rust crate is emitted from the SAME src/index.tish as dist/deck.js, which is what stops the
   # JS host and tish-gba's build-time bake from drifting. Nothing verified that: a change that broke
   # the rust-lib emit, or that made the two targets parse differently, would have gone unnoticed
@@ -187,6 +193,27 @@ jobs:
           npm pack
           mv spacedevin-deck-*.tgz spacedevin-deck-npm-package.tgz
 
+      # The player releases in lockstep: same tag, same version. Its dependency on the language
+      # package is `file:../..` so the workspace links locally and CI tests the source in this repo —
+      # that has to become the real published version before packing, or the tarball is uninstallable.
+      - name: Set player version and pin its dependency
+        run: |
+          node -e "
+          const fs = require('fs');
+          const p = './packages/player/package.json';
+          const j = JSON.parse(fs.readFileSync(p));
+          j.version = process.env.VERSION;
+          j.dependencies['@spacedevin/deck'] = process.env.VERSION;
+          fs.writeFileSync(p, JSON.stringify(j, null, 2) + '\n');
+          "
+        env:
+          VERSION: ${{ steps.next_version.outputs.version }}
+
+      - name: Create npm package tarball (@spacedevin/deck-player)
+        run: |
+          npm pack -w @spacedevin/deck-player
+          mv spacedevin-deck-player-*.tgz spacedevin-deck-player-npm-package.tgz
+
       - name: Create or update release branch and push
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -270,3 +297,10 @@ jobs:
             -H "Content-Type: application/octet-stream" \
             --data-binary @spacedevin-deck-npm-package.tgz \
             "${UPLOAD_URL}?name=spacedevin-deck-npm-package.tgz&label=npm%20package%20(@spacedevin/deck)"
+          curl -s -X POST \
+            -H "Authorization: Bearer $GITHUB_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            -H "Content-Type: application/octet-stream" \
+            --data-binary @spacedevin-deck-player-npm-package.tgz \
+            "${UPLOAD_URL}?name=spacedevin-deck-player-npm-package.tgz&label=npm%20package%20(@spacedevin/deck-player)"

@@ -1,0 +1,70 @@
+// Scale lock: snap pitches at play time. The vocabulary (`scaleIntervals`, root names, modes) is
+// language, and lives in @spacedevin/deck — only the snapping policy is ours.
+//
+// Ported from Deckard (tish-midi/src/model/Scale.tish).
+
+import { scaleIntervals } from '@spacedevin/deck'
+
+/// Snap one MIDI pitch onto the scale (nearest degree; ties round down so the key's character holds).
+/// A pitch already in the scale is returned unchanged; octaves are preserved.
+export fn snapToScale(pitch, root, mode) {
+  if (root === null || root === undefined) {
+    return pitch
+  }
+  let ivs = scaleIntervals(mode)
+  if (ivs.length >= 12) {
+    return pitch
+  }
+  let p = Math.round(pitch)
+  let rel = ((p - root) % 12 + 12) % 12
+  let i = 0
+  while (i < ivs.length) {
+    if (ivs[i] === rel) {
+      return p
+    }
+    i = i + 1
+  }
+  let best = ivs[0]
+  let bestDist = 99
+  let j = 0
+  while (j < ivs.length) {
+    let d0 = Math.abs(ivs[j] - rel)
+    let d1 = Math.abs(ivs[j] - rel + 12)
+    let d2 = Math.abs(ivs[j] - rel - 12)
+    let d = d0 < d1 ? d0 : d1
+    if (d2 < d) {
+      d = d2
+    }
+    if (d < bestDist) {
+      bestDist = d
+      best = ivs[j]
+    }
+    j = j + 1
+  }
+  let snapped = p - rel + best
+  if (snapped - p > 6) {
+    snapped = snapped - 12
+  }
+  if (p - snapped > 6) {
+    snapped = snapped + 12
+  }
+  return snapped
+}
+
+/// `scale off` parses to scaleRoot -1 / scaleMode "off"; both mean "don't snap".
+export fn songScaleActive(song) {
+  if (!song) {
+    return false
+  }
+  if (song.scaleRoot === null || song.scaleRoot === undefined || song.scaleRoot < 0) {
+    return false
+  }
+  return (song.scaleMode !== null && song.scaleMode !== undefined) && song.scaleMode !== "" && song.scaleMode !== "off"
+}
+
+export fn songSnapPitch(song, pitch) {
+  if (!songScaleActive(song)) {
+    return pitch
+  }
+  return snapToScale(pitch, song.scaleRoot, song.scaleMode)
+}

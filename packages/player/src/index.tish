@@ -1,0 +1,446 @@
+// @spacedevin/deck-player — Web Audio playback for the `.deck` language.
+//
+//   import { createDeckPlayer } from '@spacedevin/deck-player'
+//
+//   let player = createDeckPlayer()
+//   player.load(deckSource)
+//   player.play()
+//
+// The parsing half is @spacedevin/deck, which is language-only by design. This package is the host:
+// defaults, clamps, synthesis, transport. See AGENTS.md for the boundary.
+
+import { parseSong } from './song/Apply.tish'
+import { bootDeckRegistries } from './song/DeckIds.tish'
+import { buildAudioGraph, disposeAudioGraph } from './audio/Engine.tish'
+import { stepTriggers, playStep, songStepCount } from './audio/Playback.tish'
+import { createTransport } from './audio/Transport.tish'
+import { secondsPerStep, swingOffsetSec, stepsToScheduleInWindow, underrunsInBatch } from './schedule/Scheduler.tish'
+import { midiToHz, automationAt, sixteenthSeconds } from './schedule/Engine.tish'
+import { portedGeneratorIds, knownUnportedGeneratorIds, isPortedGeneratorId, defaultParamsForGeneratorId } from './generators/Registry.tish'
+import { normalizeDuty } from './generators/Duty.tish'
+import { dispatchPlayNote } from './generators/Dispatch.tish'
+import { expandTriggerNotes } from './audio/NoteExpand.tish'
+import { snapToScale, songSnapPitch } from './song/Scale.tish'
+
+fn emptyEvents() {
+  return { step: [], stop: [], load: [], error: [] }
+}
+
+fn emit(events, name, payload) {
+  let list = events[name]
+  if (!list) {
+    return
+  }
+  let i = 0
+  while (i < list.length) {
+    list[i](payload)
+    i = i + 1
+  }
+}
+
+/**
+ * Every exclusive player alive in this realm.
+ *
+ * Two chip songs at once is noise, not a demo, and a page that documents the language tends to have
+ * several players on it — the examples page has eight. So starting one stops the others rather than
+ * layering them. This lives here rather than in each consumer because otherwise every consumer
+ * reimplements it, and two of them on one page still wouldn't know about each other.
+ *
+ * Entries are removed on `dispose()`. A player that is never disposed stays listed, same as the
+ * AudioContext it holds — the element disposes on `disconnectedCallback`.
+ */
+let LIVE_PLAYERS = []
+
+fn registerLivePlayer(player) {
+  LIVE_PLAYERS.push(player)
+}
+
+fn unregisterLivePlayer(player) {
+  let kept = []
+  let i = 0
+  while (i < LIVE_PLAYERS.length) {
+    if (LIVE_PLAYERS[i] !== player) {
+      kept.push(LIVE_PLAYERS[i])
+    }
+    i = i + 1
+  }
+  LIVE_PLAYERS = kept
+}
+
+/// Stop every other exclusive player. Stop, not pause — the others' `stop` listeners fire, so their
+/// UI resets to idle instead of being left showing a paused transport nobody can see.
+fn stopOtherPlayers(self) {
+  let i = 0
+  while (i < LIVE_PLAYERS.length) {
+    let other = LIVE_PLAYERS[i]
+    if (other !== self && (other.isPlaying() || other.isPaused())) {
+      other.stop()
+    }
+    i = i + 1
+  }
+}
+
+/// How many players are currently registered as exclusive. Exposed for tests and debugging.
+export fn livePlayerCount() {
+  return LIVE_PLAYERS.length
+}
+
+/**
+ * One AudioContext for every player that didn't bring its own.
+ *
+ * An AudioContext is a page-level resource, not a per-widget one: each carries its own graph and
+ * hardware stream, and Safari has historically refused past about four. A docs page with eight
+ * playable examples would otherwise open eight. Players are exclusive by default anyway, so they
+ * never contend for it.
+ *
+ * Pass `opts.context` to opt out and manage your own.
+ */
+let SHARED_CONTEXT = null
+
+fn sharedContext() {
+  if (!SHARED_CONTEXT) {
+    SHARED_CONTEXT = new AudioContext()
+  }
+  return SHARED_CONTEXT
+}
+
+/**
+ * A player bound to one AudioContext.
+ *
+ * opts: {
+ *   context   — an existing AudioContext. Without one the player uses a single page-shared context,
+ *               created on first play so the browser's user-gesture requirement is satisfied.
+ *   gain      — master gain, default 0.9
+ *   reverb    — false to skip the convolution bus
+ *   loop      — keep looping past the song's natural end (default true; a song with no `loops` cap
+ *               has no end anyway)
+ *   exclusive — starting this player stops any other one that is playing. Default true. Pass false
+ *               to layer players deliberately (a stem player, an A/B comparison).
+ * }
+ */
+export fn createDeckPlayer(opts) {
+  let o = opts ? opts : {}
+  let ctx = o.context ? o.context : null
+  // Nothing here ever owns a context: a caller-supplied one is theirs, and the shared one belongs to
+  // the page. Closing either on dispose would silence the other players still using it.
+  let loop = o.loop !== false
+  let exclusive = o.exclusive !== false
+
+  let song = null
+  let graph = null
+  let transport = null
+  let voices = []
+  let events = emptyEvents()
+  let disposed = false
+
+  fn ensureContext() {
+    if (!ctx) {
+      ctx = sharedContext()
+    }
+    return ctx
+  }
+
+  /// Retire voices whose tail has passed. Called per step, so there is no timer to leak and an
+  /// offline render (which has no wall clock) never depends on one.
+  fn pruneVoices(now) {
+    let keep = []
+    let i = 0
+    while (i < voices.length) {
+      let v = voices[i]
+      if (v.stopTime > now) {
+        keep.push(v)
+      } else {
+        let d = 0
+        while (d < v.disconnects.length) {
+          v.disconnects[d].disconnect()
+          d = d + 1
+        }
+      }
+      i = i + 1
+    }
+    voices = keep
+  }
+
+  fn killVoices() {
+    let i = 0
+    while (i < voices.length) {
+      let v = voices[i]
+      let d = 0
+      while (d < v.disconnects.length) {
+        v.disconnects[d].disconnect()
+        d = d + 1
+      }
+      i = i + 1
+    }
+    voices = []
+  }
+
+  fn teardownGraph() {
+    killVoices()
+    if (graph) {
+      disposeAudioGraph(graph)
+      graph = null
+    }
+  }
+
+  fn ensureGraph() {
+    if (!graph && song) {
+      graph = buildAudioGraph(ensureContext(), song, { gain: o.gain, reverb: o.reverb })
+    }
+    return graph
+  }
+
+  fn onStep(step, when) {
+    let total = songStepCount(song)
+    if (total !== null && !loop && step >= total) {
+      return true
+    }
+    let started = playStep(ctx, song, graph, step, when)
+    let i = 0
+    while (i < started.length) {
+      voices.push(started[i])
+      i = i + 1
+    }
+    pruneVoices(ctx.currentTime)
+    emit(events, "step", { step: step, beat: step * 0.25, when: when })
+    return false
+  }
+
+  fn ensureTransport() {
+    if (!transport) {
+      transport = createTransport(ensureContext(), {
+        secPerStep: fn () { return secondsPerStep(song ? song.bpm : 120) },
+        swing: fn () { return song ? song.swing : 0 },
+        onStep: onStep,
+        onStopped: fn () {
+          killVoices()
+          emit(events, "stop", { reason: "end" })
+        }
+      })
+    }
+    return transport
+  }
+
+  // Built into a binding first so the methods can refer to the player itself — `stopOtherPlayers`
+  // needs an identity to skip, and `dispose` needs one to unregister.
+  let api = {
+    /// Parse and prepare. Returns the Song IR (with `errors`, `substitutions` and `ignored`) so a
+    /// caller can surface problems without re-parsing.
+    load: fn (source) {
+      if (disposed) {
+        return null
+      }
+      if (transport) {
+        transport.stop()
+      }
+      teardownGraph()
+      song = parseSong(source)
+      emit(events, "load", song)
+      return song
+    },
+
+    play: fn () {
+      if (disposed || !song) {
+        return
+      }
+      // Before anything else, including a resume — starting is starting.
+      if (exclusive) {
+        stopOtherPlayers(api)
+      }
+      ensureContext()
+      // A context created before a user gesture starts suspended; resuming inside the click handler
+      // is what actually makes sound.
+      if (ctx.state === "suspended" && transport && transport.isPaused()) {
+        transport.resume()
+        return
+      }
+      if (ctx.resume) {
+        ctx.resume()
+      }
+      ensureGraph()
+      let tr = ensureTransport()
+      if (tr.isPaused()) {
+        tr.resume()
+        return
+      }
+      if (!tr.isActive()) {
+        tr.start(0)
+      }
+    },
+
+    pause: fn () {
+      if (transport) {
+        transport.pause()
+      }
+    },
+
+    stop: fn () {
+      if (transport) {
+        transport.stop()
+      }
+      killVoices()
+      emit(events, "stop", { reason: "user" })
+    },
+
+    /// Jump to a beat. Restarts the transport there; the pattern position is derived from the step
+    /// index, so seeking is exact rather than approximate.
+    seek: fn (beat) {
+      if (!song) {
+        return
+      }
+      let step = Math.floor(Number(beat) * 4)
+      if (step < 0) {
+        step = 0
+      }
+      let wasActive = transport && transport.isActive()
+      if (transport) {
+        transport.stop()
+      }
+      killVoices()
+      if (wasActive) {
+        ensureGraph()
+        ensureTransport().start(step)
+      }
+    },
+
+    isPlaying: fn () {
+      return (transport !== null && transport !== undefined) && transport.isActive() && !transport.isPaused()
+    },
+    isPaused: fn () {
+      return (transport !== null && transport !== undefined) && transport.isPaused()
+    },
+
+    /// Beat the listener is hearing, not the one being scheduled.
+    position: fn () {
+      if (!transport || !transport.isActive()) {
+        return 0
+      }
+      return transport.audibleStep() * 0.25
+    },
+
+    /// Beats until the song ends, or null when a channel loops forever.
+    duration: fn () {
+      if (!song) {
+        return 0
+      }
+      return song.totalBeats
+    },
+
+    song: fn () { return song },
+
+    /**
+     * Stem gating, 0..3. Tracks carrying `layer N` fall silent below N, so a soundtrack can duck to
+     * its core parts and build back up. Everything plays at 3, the default.
+     */
+    setIntensity: fn (level) {
+      if (!song) {
+        return
+      }
+      let n = Math.round(Number(level))
+      if (n !== n || n < 0) {
+        n = 0
+      }
+      if (n > 3) {
+        n = 3
+      }
+      song.intensity = n
+    },
+    intensity: fn () { return song ? song.intensity : 3 },
+    analyser: fn () { return graph ? graph.analyser : null },
+    context: fn () { return ctx },
+
+    on: fn (name, handler) {
+      if (events[name]) {
+        events[name].push(handler)
+      }
+    },
+
+    dispose: fn () {
+      disposed = true
+      unregisterLivePlayer(api)
+      if (transport) {
+        transport.dispose()
+        transport = null
+      }
+      teardownGraph()
+      ctx = null
+      song = null
+      events = emptyEvents()
+    }
+  }
+
+  if (exclusive) {
+    registerLivePlayer(api)
+  }
+  return api
+}
+
+/**
+ * Render a song offline to an AudioBuffer. Uses the same graph and the same sequencer as live
+ * playback — the only difference is the destination — so what you render is what you hear.
+ *
+ * Needs a song with a finite length: every channel must carry a `loops` cap, or pass `opts.beats`.
+ * Returns a Promise<AudioBuffer>.
+ */
+export fn renderDeckToBuffer(source, opts) {
+  let o = opts ? opts : {}
+  let song = parseSong(source)
+  let sampleRate = o.sampleRate ? o.sampleRate : 44100
+
+  let beats = o.beats
+  if (beats === null || beats === undefined) {
+    beats = song.totalBeats
+  }
+  if (beats === null || beats === undefined) {
+    beats = song.loopBeats
+  }
+
+  let secPerStep = secondsPerStep(song.bpm)
+  let steps = Math.ceil(beats * 4)
+  // A tail so the last note's release isn't cut off mid-decay.
+  let seconds = steps * secPerStep + 2.0
+  let ctx = new OfflineAudioContext(2, Math.ceil(seconds * sampleRate), sampleRate)
+  let graph = buildAudioGraph(ctx, song, { gain: o.gain, reverb: o.reverb })
+
+  let t0 = 0.05
+  let s = 0
+  while (s < steps) {
+    let when = t0 + s * secPerStep + swingOffsetSec(s, secPerStep, song.swing)
+    playStep(ctx, song, graph, s, when)
+    s = s + 1
+  }
+  return ctx.startRendering()
+}
+
+export {
+  // Song IR
+  livePlayerCount,
+  parseSong,
+  bootDeckRegistries,
+  // sequencing (pure — usable without an AudioContext)
+  stepTriggers,
+  songStepCount,
+  expandTriggerNotes,
+  snapToScale,
+  songSnapPitch,
+  // timing math
+  secondsPerStep,
+  sixteenthSeconds,
+  swingOffsetSec,
+  stepsToScheduleInWindow,
+  underrunsInBatch,
+  midiToHz,
+  automationAt,
+  // generators
+  portedGeneratorIds,
+  knownUnportedGeneratorIds,
+  isPortedGeneratorId,
+  defaultParamsForGeneratorId,
+  normalizeDuty,
+  dispatchPlayNote,
+  // graph
+  buildAudioGraph,
+  disposeAudioGraph,
+  createTransport,
+  playStep
+}

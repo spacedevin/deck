@@ -1,0 +1,31 @@
+// Pulse duty spelling, shared by both chip voices.
+//
+// Its own module because Registry needs the generators' default-param functions and the generators
+// need this — putting it in Registry makes that a cycle.
+
+/**
+ * Canonical duty spelling. Matches `duty_code` / `pcm_table` in tish-gba's bake
+ * (crates/tish-gba-scenepack/src/deckpack.rs): only `12_5`/`12.5`, `25` and `75` are distinct, and
+ * ANYTHING else is 50%.
+ *
+ * The fallback is load-bearing. Deckard's `getDmgPulseBuffer` starts from an all-zero sequence and
+ * only fills it on an exact string match, so an unrecognised duty — e.g. the numeric `duty 12.5`,
+ * which stringifies to "12.5", not "12_5" — yields a buffer of constant -1.0, a silent channel. The
+ * GBA bake falls back to 50 there, so a song that sounds right on hardware went quiet in the browser.
+ */
+export fn normalizeDuty(raw) {
+  if (raw === null || raw === undefined) {
+    return "50"
+  }
+  let s = String(raw)
+  if (s === "12_5" || s === "12.5") {
+    return "12_5"
+  }
+  if (s === "25") {
+    return "25"
+  }
+  if (s === "75") {
+    return "75"
+  }
+  return "50"
+}

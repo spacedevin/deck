@@ -1,0 +1,129 @@
+// Host registrations for @spacedevin/deck: generator id aliases, param key aliases, legacy body
+// lines, highlight vocabulary.
+//
+// Boot order and the fact that this is the host's job come from docs/HOST.md. Ported from Deckard
+// (tish-midi/src/generators/DeckIds.tish), minus the `patch` / `matrix_fm` gen_block dialects — those
+// need graph parsers this package hasn't ported, and registering a dialect we can't play would turn
+// "gen_block kept as raw lines" into a half-parsed graph nobody consumes.
+//
+// IMPORTANT: the deck package's registries are module-level singletons, shared by everything that
+// imports it in this realm. Registration must be idempotent, and it must not contradict another
+// host's — so this only registers aliases that are unambiguous across hosts.
+
+import {
+  registerGeneratorIdAliases,
+  registerParamKeyAliases,
+  registerBodyLineDialect,
+  registerTopLevelStatement,
+  registerHighlightKeywords,
+  paramKeyToCamel
+} from '@spacedevin/deck'
+
+/// `noise` / `fm` / `osc` — legacy one-line generator params, same shape as `gen`: trailing
+/// `key value` pairs, snake keys camelised. Numbers become numbers, everything else stays a string.
+fn parseLegacyGenLine(head, toks) {
+  let params = {}
+  let i = 1
+  while (i + 1 < toks.length) {
+    let key = paramKeyToCamel(toks[i])
+    let val = toks[i + 1]
+    let num = Number(val)
+    params[key] = (num === num && val.length > 0) ? num : val
+    i = i + 2
+  }
+  return { kind: "gen", params: params }
+}
+
+/// `wave <name> <32 hex nibbles>` — a named PSG wavetable. Kept as raw tokens; Apply validates.
+fn parseWaveStatement(head, toks) {
+  return toks
+}
+
+/// `layer|intensity|min_intensity <0..3>` — stem gating. A track sounds only at or above its level.
+fn parseLayerLine(head, toks) {
+  return { kind: "layer", level: toks[1] }
+}
+
+let registered = false
+
+/// Idempotent. Called by `parseSong`, so a consumer never has to think about boot order.
+export fn bootDeckRegistries() {
+  if (registered) {
+    return
+  }
+  registered = true
+
+  registerGeneratorIdAliases(
+    {
+      game_boy_dmg: "gameBoyDmg",
+      gameboydmg: "gameBoyDmg",
+      gameboy_dmg: "gameBoyDmg",
+      dmg: "gameBoyDmg",
+      gba_direct_sound: "gbaDirectSound",
+      gbadirectsound: "gbaDirectSound",
+      directsound: "gbaDirectSound",
+      basic_osc: "basicOsc",
+      basicosc: "basicOsc",
+      osc: "basicOsc",
+      noise_burst: "noiseBurst",
+      noiseburst: "noiseBurst",
+      fm: "fmTone",
+      fm_tone: "fmTone",
+      fmtone: "fmTone",
+      matrix_fm: "matrixFm",
+      matrixfm: "matrixFm",
+      drum: "drumSynth",
+      drum_synth: "drumSynth",
+      drumsynth: "drumSynth",
+      patch: "patch",
+      modular: "patch",
+      synth: "patch"
+    },
+    {
+      gameBoyDmg: "gameBoyDmg",
+      gbaDirectSound: "gbaDirectSound",
+      basicOsc: "basic_osc",
+      noiseBurst: "noise_burst",
+      fmTone: "fm",
+      drumSynth: "drum",
+      matrixFm: "matrix_fm"
+    }
+  )
+
+  // Snake spellings the chip synths accept that aren't a plain snake→camel of a known key.
+  registerParamKeyAliases({
+    wave_shape: "waveShape",
+    noise_mode: "noiseMode",
+    noise_shift: "noiseShift",
+    noise_ratio: "noiseRatio",
+    pitch_drop: "pitchDrop",
+    pitch_dec: "pitchDec",
+    vib_rate: "vibRate",
+    vib_amt: "vibAmt",
+    arp_rate: "arpRate",
+    arp_semis: "arpSemis",
+    env_mode: "envMode",
+    env_step: "envStep",
+    env_up: "envUp",
+    sweep_shift: "sweepShift",
+    sweep_period: "sweepPeriod",
+    sweep_down: "sweepDown"
+  })
+
+  // Legacy per-engine one-liners: `noise attack 0.01 decay 0.2`, `fm ratio 2 mod_index 3`,
+  // `osc waveform saw`. They are `gen`-shaped, so they register as a body dialect rather than being
+  // re-scanned in Apply.
+  registerBodyLineDialect(["noise", "fm", "osc"], parseLegacyGenLine)
+
+  // The GBA host extensions. `conformance/profiles.json` declares them as the `gba` profile's
+  // extensions (topLevel: ["wave"], body: ["layer","intensity","min_intensity"]), and 10 of the 62
+  // songs in the tish-gba corpus use them — without these, a sixth of the real corpus reports
+  // "unexpected top-level: wave" and its wave channels play a generic saw instead of their own table.
+  registerTopLevelStatement("wave", parseWaveStatement)
+  registerBodyLineDialect(["layer", "intensity", "min_intensity"], parseLayerLine)
+
+  registerHighlightKeywords({
+    top: ["wave"],
+    body: ["noise", "fm", "osc", "layer", "intensity", "min_intensity"]
+  })
+}

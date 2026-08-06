@@ -1,0 +1,291 @@
+// The Web Audio graph.
+//
+//   voice → bus.input (drive WaveShaper) → BiquadFilter → 3-band EQ → gain → StereoPanner
+//         → masterSum → master gain → DynamicsCompressor → tanh soft-clip → Analyser → destination
+//
+// plus a shared convolution reverb bus fed by per-channel aux sends.
+//
+// Ported from Deckard (tish-midi/src/audio/Engine.tish, 1177 lines) with the DJ application removed:
+// no co-DJ gain overlay, no cue/PFL second output, no scratch platters, no deck A–D crossfader, no
+// actor mixer lanes. What is left is the per-channel strip and the master chain — the parts that
+// exist to make a song sound right rather than to run a live set.
+
+import { dispatchPlayNote } from '../generators/Dispatch.tish'
+
+fn makeDriveCurve(ctx, amount) {
+  let k = amount * 120
+  let n = 1024
+  let curve = new Float32Array(n)
+  let i = 0
+  while (i < n) {
+    let x = (i * 2) / n - 1
+    curve[i] = ((3 + k) * x * 0.5) / (Math.PI + k * Math.abs(x))
+    i = i + 1
+  }
+  return curve
+}
+
+/**
+ * Smooth synthetic convolution-reverb impulse (a noise burst with an exponential decay tail) — a real
+ * room wash, NOT a feedback delay, which slaps and pops on transients.
+ *
+ * Deckard seeds this with `Math.random()`. Here it is a deterministic LCG: an offline render of the
+ * same song must produce the same samples every time, or the render API can't be tested and two
+ * renders of one song differ in their reverb tail for no reason the user can see.
+ */
+fn makeReverbImpulse(ctx, duration, decay) {
+  let len = Math.floor(ctx.sampleRate * duration)
+  if (len < 1) {
+    len = 1
+  }
+  let impulse = ctx.createBuffer(2, len, ctx.sampleRate)
+  let seed = 22222
+  let c = 0
+  while (c < 2) {
+    let data = impulse.getChannelData(c)
+    let j = 0
+    while (j < len) {
+      seed = (seed * 1103515245 + 12345) % 2147483648
+      if (seed < 0) {
+        seed = -seed
+      }
+      let rnd = (seed / 2147483648) * 2 - 1
+      data[j] = rnd * Math.pow(1 - j / len, decay)
+      j = j + 1
+    }
+    c = c + 1
+  }
+  return impulse
+}
+
+/// tanh: unity slope at 0 (transparent at low level), gently saturating toward the rails so a peak
+/// bends instead of clipping into a click. NOT normalized — that would add ~2x low-level makeup gain.
+fn makeSoftClipCurve() {
+  let n = 1024
+  let curve = new Float32Array(n)
+  let i = 0
+  while (i < n) {
+    let x = (i * 2) / (n - 1) - 1
+    curve[i] = Math.tanh(x)
+    i = i + 1
+  }
+  return curve
+}
+
+fn makeShelf(ctx, t, freq, q) {
+  let f = ctx.createBiquadFilter()
+  f.type = t
+  f.frequency.value = freq
+  f.Q.value = q
+  f.gain.value = 0
+  return f
+}
+
+fn connectTrackEq(ctx, filt, ch, gainAfterEq) {
+  let tLo = makeShelf(ctx, "lowshelf", 220, 0.85)
+  let tMid = ctx.createBiquadFilter()
+  tMid.type = "peaking"
+  tMid.frequency.value = 1400
+  tMid.Q.value = 0.85
+  tMid.gain.value = ch.eqMid
+  let tHi = makeShelf(ctx, "highshelf", 5200, 0.7)
+  tLo.gain.value = ch.eqLo
+  tHi.gain.value = ch.eqHi
+  filt.connect(tLo)
+  tLo.connect(tMid)
+  tMid.connect(tHi)
+  tHi.connect(gainAfterEq)
+  return { lo: tLo, mid: tMid, hi: tHi }
+}
+
+/// Per-channel strip: drive → filter → 3-band EQ → trim → pan → master sum (+ reverb send).
+export fn buildChannelBus(ctx, ch, masterSum, reverbIn) {
+  let pan = ctx.createStereoPanner()
+  pan.pan.value = ch.pan
+  let g = ctx.createGain()
+  g.gain.value = ch.gain
+
+  let filt = ctx.createBiquadFilter()
+  filt.type = ch.filterType
+  // Default OPEN (20 kHz ≈ transparent). The channel filter is an opt-in effect, not an always-on
+  // dulling insert — an unset cutoff must never collapse it toward silence.
+  filt.frequency.value = ch.cutoff
+  filt.Q.value = ch.res > 0 ? ch.res : 0.7
+
+  let drive = ctx.createWaveShaper()
+  drive.oversample = "2x"
+  if (ch.drive > 0) {
+    drive.curve = makeDriveCurve(ctx, ch.drive)
+  }
+  drive.connect(filt)
+
+  // Filter-cutoff LFO — movement / wobble. Started only when it would do something, so an unused
+  // oscillator isn't left running per channel.
+  let lfo = null
+  let lfoGain = null
+  if (ch.lfoRate > 0 && ch.lfoDepth > 0) {
+    lfo = ctx.createOscillator()
+    lfo.type = "sine"
+    lfo.frequency.value = ch.lfoRate
+    lfoGain = ctx.createGain()
+    // lfoDepth is 0..1; scale it into Hz around the cutoff so it modulates audibly.
+    lfoGain.gain.value = ch.lfoDepth * ch.cutoff * 0.5
+    lfo.connect(lfoGain)
+    lfoGain.connect(filt.frequency)
+    lfo.start()
+  }
+
+  let teq = connectTrackEq(ctx, filt, ch, g)
+  g.connect(pan)
+  pan.connect(masterSum)
+
+  let revSend = ctx.createGain()
+  revSend.gain.value = ch.reverbSend
+  pan.connect(revSend)
+  if (reverbIn) {
+    revSend.connect(reverbIn)
+  }
+
+  return {
+    chId: ch.id,
+    input: drive,
+    gainNode: g,
+    panNode: pan,
+    filterNode: filt,
+    eqLo: teq.lo,
+    eqMid: teq.mid,
+    eqHi: teq.hi,
+    reverbSend: revSend,
+    driveNode: drive,
+    lfo: lfo,
+    lfoGain: lfoGain
+  }
+}
+
+/**
+ * Build the whole graph for a song: one bus per channel plus the master chain.
+ *
+ * `destination` lets an OfflineAudioContext render use the same code path as live playback — the only
+ * difference between hearing a song and rendering it is which node the master chain lands on.
+ */
+export fn buildAudioGraph(ctx, song, opts) {
+  let o = opts ? opts : {}
+  let masterGainValue = (o.gain !== null && o.gain !== undefined) ? o.gain : 0.9
+  let withReverb = o.reverb !== false
+
+  let masterSum = ctx.createGain()
+  masterSum.gain.value = 1
+
+  let reverbIn = null
+  let convolver = null
+  if (withReverb) {
+    reverbIn = ctx.createGain()
+    reverbIn.gain.value = 1
+    convolver = ctx.createConvolver()
+    convolver.buffer = makeReverbImpulse(ctx, 2.2, 2.6)
+    reverbIn.connect(convolver)
+    convolver.connect(masterSum)
+  }
+
+  let masterGain = ctx.createGain()
+  masterGain.gain.value = masterGainValue
+
+  // Glue compression, then a soft clip so a stacked transient bends instead of cracking.
+  let glue = ctx.createDynamicsCompressor()
+  glue.threshold.value = -12
+  glue.knee.value = 12
+  glue.ratio.value = 3
+  glue.attack.value = 0.006
+  glue.release.value = 0.16
+
+  let limiter = ctx.createWaveShaper()
+  limiter.curve = makeSoftClipCurve()
+  limiter.oversample = "2x"
+
+  masterSum.connect(masterGain)
+  masterGain.connect(glue)
+  glue.connect(limiter)
+
+  let analyser = null
+  if (ctx.createAnalyser) {
+    analyser = ctx.createAnalyser()
+    analyser.fftSize = 2048
+    limiter.connect(analyser)
+    analyser.connect(ctx.destination)
+  } else {
+    limiter.connect(ctx.destination)
+  }
+
+  let buses = []
+  let i = 0
+  while (i < song.channels.length) {
+    buses.push(buildChannelBus(ctx, song.channels[i], masterSum, reverbIn))
+    i = i + 1
+  }
+
+  return {
+    buses: buses,
+    masterSum: masterSum,
+    masterGain: masterGain,
+    glue: glue,
+    limiter: limiter,
+    analyser: analyser,
+    convolver: convolver,
+    reverbIn: reverbIn
+  }
+}
+
+/// Tear the graph down. Called on stop/dispose so a re-`load()` doesn't leak a whole second graph.
+export fn disposeAudioGraph(graph) {
+  if (!graph) {
+    return
+  }
+  let i = 0
+  while (i < graph.buses.length) {
+    let b = graph.buses[i]
+    if (b.lfo) {
+      b.lfo.stop()
+      b.lfo.disconnect()
+    }
+    if (b.lfoGain) { b.lfoGain.disconnect() }
+    b.input.disconnect()
+    b.filterNode.disconnect()
+    b.eqLo.disconnect()
+    b.eqMid.disconnect()
+    b.eqHi.disconnect()
+    b.gainNode.disconnect()
+    b.panNode.disconnect()
+    b.reverbSend.disconnect()
+    i = i + 1
+  }
+  if (graph.reverbIn) { graph.reverbIn.disconnect() }
+  if (graph.convolver) { graph.convolver.disconnect() }
+  graph.masterSum.disconnect()
+  graph.masterGain.disconnect()
+  graph.glue.disconnect()
+  graph.limiter.disconnect()
+  if (graph.analyser) { graph.analyser.disconnect() }
+}
+
+/// Is this channel heard right now? Mute wins; a solo anywhere silences every non-soloed channel; a
+/// `layer` track is silent below its intensity level.
+export fn channelAudible(song, idx) {
+  let ch = song.channels[idx]
+  if (!ch) {
+    return false
+  }
+  if (ch.mute) {
+    return false
+  }
+  if (song.anySolo && !ch.solo) {
+    return false
+  }
+  if (ch.minIntensity > song.intensity) {
+    return false
+  }
+  return true
+}
+
+export fn playHitAt(ctx, bus, t, midi, vel, durSec, ch, bendSemis) {
+  return dispatchPlayNote(ctx, bus, t, midi, vel, durSec, ch, bendSemis)
+}

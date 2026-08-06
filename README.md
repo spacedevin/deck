@@ -44,6 +44,25 @@ npm run examples
 
 Apply/emit to project IR · session/co-DJ · audio engines · instrument catalogs · builtin macro catalogs · HTML highlight CSS · graph editor mutators.
 
+## Playback
+
+Hearing a `.deck` file is a host job, so it is a second package in this repo:
+**[`@spacedevin/deck-player`](packages/player/)** — Web Audio chip synths, a lookahead transport, and
+a `<deck-player>` element.
+
+```bash
+npm install @spacedevin/deck-player
+```
+
+```js
+import { createDeckPlayer } from '@spacedevin/deck-player'
+let player = createDeckPlayer()
+player.load(source)
+player.play()
+```
+
+It depends on this package and never the reverse — the language stays audio-free.
+
 ## Rust
 
 The same `src/index.tish` also emits a Rust library crate, so a Rust consumer (tish-gba's build-time
@@ -63,7 +82,10 @@ One source, three targets — Tish, JS, Rust — checked against one corpus.
 
 ## Docs
 
+**[spacedevin.github.io/deck](https://spacedevin.github.io/deck/)** — the same markdown, as a site.
+
 - **[Language grammar](docs/DECK_GRAMMAR.md)** — canonical `.deck` surface
+- **[Examples](docs/EXAMPLES.md)** — complete runnable songs (playable on the site)
 - **[gen_block extensions](docs/DECK_EXTENSION.md)** — dialect registration + common `patch` / `matrix_fm`
 - **[Host integration](docs/HOST.md)** — boot order, registries, what hosts implement
 - **[AGENTS.md](AGENTS.md)** — in/out of scope for package edits
