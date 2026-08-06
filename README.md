@@ -118,11 +118,12 @@ One source, three targets — Tish, JS, Rust — checked against one corpus.
 
 - **[Language grammar](docs/DECK_GRAMMAR.md)** — canonical `.deck` surface
 - **[Examples](docs/EXAMPLES.md)** — complete runnable songs (playable on the site)
+- **[AST shape](docs/AST.md)** — what `parseProgram` / `parseTrackBody` return
 - **[gen_block extensions](docs/DECK_EXTENSION.md)** — dialect registration + common `patch` / `matrix_fm`
 - **[Host integration](docs/HOST.md)** — boot order, registries, what hosts implement
 - **[AGENTS.md](AGENTS.md)** — in/out of scope for package edits
 
-npm also exports `./grammar` and `./extension` to those markdown files.
+npm also exports `./grammar`, `./ast`, `./examples`, `./extension` and `./host` to those markdown files.
 
 ## Release
 

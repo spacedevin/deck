@@ -86,6 +86,8 @@ Sources are read **in place**. `docs/*.md` are package exports and ship in the t
 |-----|----------|
 | [README.md](README.md) | Install + API map |
 | [docs/DECK_GRAMMAR.md](docs/DECK_GRAMMAR.md) | **Canonical** language reference |
+| [docs/AST.md](docs/AST.md) | What `parseProgram` / `parseTrackBody` return |
+| [docs/EXAMPLES.md](docs/EXAMPLES.md) | Complete runnable songs |
 | [docs/DECK_EXTENSION.md](docs/DECK_EXTENSION.md) | gen_block dialect registration + common dialects |
 | [docs/HOST.md](docs/HOST.md) | How a host boots registries |
 | [examples/](examples/) | Runnable parse / boot / helper demos |

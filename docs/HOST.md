@@ -71,30 +71,16 @@ let ast = parseProgram(source)
 | Skills / ownership | co-DJ layer |
 | Highlight CSS | map `classifyLine` classes to themes |
 
-## AST shape (summary)
+## AST shape
 
-`parseProgram` returns one flat object. Every field is always present; the value is `null` (or an
-empty array) when the source didn't set it.
+`parseProgram` returns one flat object; `parseTrackBody` turns a track's raw body rows into typed
+ones. Both are documented in full in **[AST.md](AST.md)** — the top-level fields, every body-row
+`kind`, bar selectors and gen blocks.
 
-| Field | Shape |
-|-------|-------|
-| `tplVersion` | number (`deck 1` / `tpl 1`) |
-| `bpm`, `swing`, `launchQuant`, `songSeed`, `mainDeck` | scalar or `null` |
-| `scaleRoot`, `scaleMode` | pitch class `0..11` (`-1` = scale off) + mode name |
-| `xfade` | `{ x, y }` or `null` |
-| `deckMix` | `{ A\|B\|C\|D: { hi, mid, lo, flt, vol } }` or `null` |
-| `tracks[]` | `{ name, id, generatorId, rawGenId, genParams, loopBars, body[], genBlocks[] }` |
-| `clipBlocks[]` | `{ clipId, channelId, bars, displayName, body[] }` |
-| `autos[]` | `{ lineNo, header[], points: [{ beat, value }] }` |
-| `macros` | object map `name → { params, body[] }` |
-| `removeTrackIds[]` | channel ids from `remove_track` |
-| `masterMixTokens`, `actorMixRows[]` | raw token rows for the host to interpret |
-| `sessionSceneCount`, `sessionSlots[]`, `song`, `follow` | session / arrangement |
-| `directives[]` | `{ lineNo, verb, tokens[] }` — every `@ …` line |
-| `errors[]` | `{ line, msg }` — the parser accumulates, it never throws |
-
-Track and clip `body[]` rows are `{ lineNo, tokens[], raw }`; `genBlocks[]` entries are
-`{ generatorId, lines[] }`.
+The two rules that shape everything a host does with it: the parser **never throws** (errors
+accumulate in `errors[]` so a partial stream still parses), and it is **parse-only** — an absent
+optional is `null` rather than a default, and nothing is clamped. Applying defaults and ranges is
+your job, which is what the table above means by "clamps, defaults, range checks".
 
 **Control directives.** `@ launch`, `@ transport`, `@ cue`, `@ throw`, `@ fx`, `@ deck`, `@ perf_step`
 are transient stream lines, not document state, so the parser collects them into `directives[]`
@@ -103,5 +89,6 @@ verbatim and leaves the meaning to the host. They never produce errors.
 ## Package docs
 
 - [DECK_GRAMMAR.md](DECK_GRAMMAR.md) — language  
+- [AST.md](AST.md) — what the parser returns  
 - [DECK_EXTENSION.md](DECK_EXTENSION.md) — dialects  
 - npm exports: `@spacedevin/deck/grammar`, `@spacedevin/deck/extension`

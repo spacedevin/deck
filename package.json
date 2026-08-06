@@ -28,6 +28,8 @@
       "default": "./dist/deck.js"
     },
     "./grammar": "./docs/DECK_GRAMMAR.md",
+    "./ast": "./docs/AST.md",
+    "./examples": "./docs/EXAMPLES.md",
     "./extension": "./docs/DECK_EXTENSION.md",
     "./host": "./docs/HOST.md",
     "./package.json": "./package.json"

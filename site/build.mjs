@@ -44,7 +44,7 @@ const SECTIONS = [
     label: 'Language',
     dir: 'docs',
     slug: 'docs',
-    order: ['DECK_GRAMMAR.md', 'EXAMPLES.md', 'DECK_EXTENSION.md', 'HOST.md'],
+    order: ['DECK_GRAMMAR.md', 'EXAMPLES.md', 'AST.md', 'DECK_EXTENSION.md', 'HOST.md'],
     // Every untagged fence in these files is `.deck` — the grammar reference shows the language it
     // documents, and the host-facing snippets are all tagged `tish`. Declared rather than guessed.
     defaultLang: 'deck',
