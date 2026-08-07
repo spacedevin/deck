@@ -2,6 +2,38 @@
 
 Streamable **`.deck`** patch **language** for Tish hosts (e.g. Deckard).
 
+```deck
+deck 1
+bpm 132
+
+track Lead id lead gen gameBoyDmg
+  gen type pulse duty 25 vol 11
+  note 72 0 0.5 v 110
+  note 76 0.5 0.5 v 95
+  note 79 1 1 v 105
+  note 76 2 0.5 v 100
+  note 72 2.5 1.5 v 110
+
+track Bass id bass gen gameBoyDmg
+  gen type wave wave_shape saw vol 15
+  note 36 0 2 v 120
+  note 43 2 2 v 110
+
+track Kick id kick gen gbaDirectSound
+  gen waveform triangle pitch_drop -14
+  adsr a 0 d 0.08 s 0 r 0
+  step_pitch 36
+  steps x . . . x . . x x . . . x . . .
+```
+
+That is a whole song: a tempo, three tracks, and what each one plays — melody as notes on
+a beat grid, drums as a step pattern. **[Press play on it](https://spacedevin.github.io/deck/)**
+— the docs site synthesises it in the browser with
+[`@spacedevin/deck-player`](packages/player/), the same engine that drives the GBA build.
+
+More in **[Examples](docs/EXAMPLES.md)**; the full surface in the
+**[grammar](docs/DECK_GRAMMAR.md)**.
+
 ## Install
 
 ```bash
@@ -44,6 +76,25 @@ npm run examples
 
 Apply/emit to project IR · session/co-DJ · audio engines · instrument catalogs · builtin macro catalogs · HTML highlight CSS · graph editor mutators.
 
+## Playback
+
+Hearing a `.deck` file is a host job, so it is a second package in this repo:
+**[`@spacedevin/deck-player`](packages/player/)** — Web Audio chip synths, a lookahead transport, and
+a `<deck-player>` element.
+
+```bash
+npm install @spacedevin/deck-player
+```
+
+```js
+import { createDeckPlayer } from '@spacedevin/deck-player'
+let player = createDeckPlayer()
+player.load(source)
+player.play()
+```
+
+It depends on this package and never the reverse — the language stays audio-free.
+
 ## Rust
 
 The same `src/index.tish` also emits a Rust library crate, so a Rust consumer (tish-gba's build-time
@@ -63,12 +114,16 @@ One source, three targets — Tish, JS, Rust — checked against one corpus.
 
 ## Docs
 
+**[spacedevin.github.io/deck](https://spacedevin.github.io/deck/)** — the same markdown, as a site.
+
 - **[Language grammar](docs/DECK_GRAMMAR.md)** — canonical `.deck` surface
+- **[Examples](docs/EXAMPLES.md)** — complete runnable songs (playable on the site)
+- **[AST shape](docs/AST.md)** — what `parseProgram` / `parseTrackBody` return
 - **[gen_block extensions](docs/DECK_EXTENSION.md)** — dialect registration + common `patch` / `matrix_fm`
 - **[Host integration](docs/HOST.md)** — boot order, registries, what hosts implement
 - **[AGENTS.md](AGENTS.md)** — in/out of scope for package edits
 
-npm also exports `./grammar` and `./extension` to those markdown files.
+npm also exports `./grammar`, `./ast`, `./examples`, `./extension` and `./host` to those markdown files.
 
 ## Release
 

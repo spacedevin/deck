@@ -1,0 +1,297 @@
+/* deck docs. One stylesheet, no build step — the generator copies it verbatim. */
+
+:root {
+  --bg: #0b0d10;
+  --panel: #0f1216;
+  --line: #1e242c;
+  --fg: #d7dde5;
+  --dim: #8b95a3;
+  --accent: #00e5a0;
+  --accent-dim: rgba(0, 229, 160, 0.14);
+  --code-bg: #0d1117;
+  --scroll-thumb: rgba(255, 255, 255, 0.16);
+  --scroll-thumb-hover: rgba(0, 229, 160, 0.55);
+  --max: 1440px;
+  /* Both rails carry --nav-pad on each side, so they are widened by it — otherwise adding the
+     padding would just have made the link text wrap sooner. */
+  --sidebar: 268px;
+  --toc: 224px;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: #ffffff;
+    --panel: #f7f9fa;
+    --line: #e3e8ee;
+    --fg: #1c2330;
+    --dim: #5d6875;
+    --accent: #00875a;
+    --accent-dim: rgba(0, 135, 90, 0.1);
+    --code-bg: #f4f6f8;
+    --scroll-thumb: rgba(0, 0, 0, 0.22);
+    --scroll-thumb-hover: rgba(0, 135, 90, 0.55);
+  }
+}
+
+/* Scrollbars.
+   A wide code line gets the OS default: a fat light-grey slab sitting on a dark code block, which
+   ends up the loudest thing on the page. Thin, track-less, in the page's own palette instead.
+   `scrollbar-width` + `scrollbar-color` covers Firefox and current Chrome; the ::-webkit- rules
+   cover Safari and older Chromium. Both are needed — neither is universal yet.
+
+   Deliberately scoped to `pre` and tables, NOT the sidebar or TOC: styling ::-webkit-scrollbar opts
+   a container out of macOS overlay scrollbars, so it shows a bar permanently. On a code block that
+   is a useful "this scrolls" affordance; on a nav rail it is just clutter, so those keep the native
+   overlay behaviour. */
+pre, main table {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scroll-thumb) transparent;
+}
+pre::-webkit-scrollbar,
+main table::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+pre::-webkit-scrollbar-track,
+main table::-webkit-scrollbar-track {
+  background: transparent;
+}
+pre::-webkit-scrollbar-thumb,
+main table::-webkit-scrollbar-thumb {
+  background: var(--scroll-thumb);
+  border-radius: 999px;
+  /* Transparent border + padding-box clip insets the thumb so it doesn't sit flush in the corner. */
+  border: 3px solid transparent;
+  background-clip: padding-box;
+}
+pre:hover::-webkit-scrollbar-thumb,
+main table:hover::-webkit-scrollbar-thumb {
+  background: var(--scroll-thumb-hover);
+  background-clip: padding-box;
+}
+pre::-webkit-scrollbar-corner,
+main table::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; scroll-padding-top: 72px; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font: 16px/1.65 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+.skip {
+  position: absolute; left: -9999px; top: 0; z-index: 10;
+  background: var(--accent); color: var(--bg); padding: 10px 16px;
+}
+.skip:focus { left: 0; }
+
+/* ── top bar ─────────────────────────────────────────────────────────────── */
+
+.topbar {
+  position: sticky; top: 0; z-index: 5;
+  display: flex; align-items: center; gap: 24px;
+  padding: 14px 24px;
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--line);
+}
+.brand {
+  font-weight: 700; font-size: 18px; letter-spacing: 0.02em;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.topbar nav { display: flex; gap: 20px; margin-left: auto; font-size: 14px; }
+.topbar nav a { color: var(--dim); }
+.topbar nav a:hover { color: var(--fg); text-decoration: none; }
+
+/* ── layout ──────────────────────────────────────────────────────────────── */
+
+.layout {
+  display: grid;
+  grid-template-columns: var(--sidebar) minmax(0, 1fr) var(--toc);
+  gap: 40px;
+  max-width: var(--max);
+  margin: 0 auto;
+  padding: 32px 24px 96px;
+}
+
+/* --nav-pad is the single source of the sidebar's horizontal rhythm: links pad by it, and the
+   section labels indent by the same amount so the column stays aligned. The link previously used a
+   negative margin to cancel its own padding, which put the highlight box flush against the text. */
+:root { --nav-pad: 14px; }
+
+.sidebar { position: sticky; top: 72px; align-self: start; max-height: calc(100vh - 90px); overflow-y: auto; }
+.nav-section { margin-bottom: 26px; }
+.nav-label {
+  display: block; margin-bottom: 8px; padding: 0 var(--nav-pad);
+  font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--dim);
+}
+.sidebar ul, .toc ul { list-style: none; margin: 0; padding: 0; }
+.sidebar li { margin: 2px 0; }
+.sidebar li a {
+  display: block; padding: 7px var(--nav-pad);
+  border-radius: 6px; color: var(--fg); font-size: 14px; line-height: 1.4;
+}
+.sidebar li a:hover { background: var(--accent-dim); text-decoration: none; }
+.sidebar li a.active { color: var(--accent); background: var(--accent-dim); font-weight: 600; }
+
+/* The TOC pads to match, so both rails read as one system rather than two. Its link padding lives in
+   the `.toc li a` rule below — setting it here would lose to that rule's `padding` shorthand. */
+.toc .nav-label { padding: 0 var(--nav-pad); }
+
+.toc { position: sticky; top: 72px; align-self: start; max-height: calc(100vh - 90px); overflow-y: auto; }
+.toc li a { display: block; padding: 4px var(--nav-pad); color: var(--dim); font-size: 13px; }
+.toc li a:hover { color: var(--fg); text-decoration: none; }
+.toc li.d3 a { padding-left: calc(var(--nav-pad) + 12px); font-size: 12.5px; }
+
+main { min-width: 0; }
+main h1 { font-size: 34px; line-height: 1.2; margin: 0 0 8px; letter-spacing: -0.01em; }
+main .lede { margin: 0 0 28px; color: var(--dim); font-size: 17px; }
+main h2 {
+  font-size: 24px; margin: 44px 0 14px; padding-top: 14px;
+  border-top: 1px solid var(--line); letter-spacing: -0.01em;
+}
+main h3 { font-size: 18px; margin: 28px 0 10px; }
+main h4 { font-size: 16px; margin: 22px 0 8px; color: var(--dim); }
+main p, main li { overflow-wrap: break-word; }
+main ul, main ol { padding-left: 22px; }
+main li { margin: 5px 0; }
+main hr { border: 0; border-top: 1px solid var(--line); margin: 36px 0; }
+main blockquote {
+  margin: 18px 0; padding: 2px 18px;
+  border-left: 3px solid var(--accent); color: var(--dim);
+}
+main img { max-width: 100%; height: auto; }
+
+/* ── code ────────────────────────────────────────────────────────────────── */
+
+code, pre, kbd {
+  font-family: ui-monospace, SFMono-Regular, Menlo, "Cascadia Code", monospace;
+}
+:not(pre) > code {
+  background: var(--accent-dim); color: var(--accent);
+  padding: 1px 6px; border-radius: 4px; font-size: 0.88em;
+}
+pre {
+  background: var(--code-bg);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--accent);
+  border-radius: 6px;
+  padding: 14px 18px;
+  overflow-x: auto;          /* wide code scrolls itself; the page never does */
+  font-size: 13.5px; line-height: 1.55;
+  margin: 16px 0;
+}
+pre code { background: none; color: inherit; padding: 0; font-size: inherit; }
+
+/* ── syntax highlighting ─────────────────────────────────────────────────────
+   One palette drives both highlighters — highlight.js for the general languages
+   and the deck tokenizer built on the package's own keyword tables. Keeping the
+   two on the same variables is what stops a `.deck` block from looking like it
+   came off a different site than the `tish` block above it. */
+
+:root {
+  --syn-key: #ff7bd5;     /* keywords, statement heads      */
+  --syn-str: #a5e075;     /* strings                        */
+  --syn-num: #d3a0ff;     /* numbers                        */
+  --syn-com: #6a7688;     /* comments                       */
+  --syn-fn:  #6cc4ff;     /* functions, titles              */
+  --syn-typ: #ffd479;     /* types, classes, generator ids  */
+  --syn-var: #8fe6c6;     /* params, attributes, inline kw  */
+  --syn-mut: #7d8794;     /* punctuation, placeholders      */
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --syn-key: #b3199a;
+    --syn-str: #2c7a20;
+    --syn-num: #6b34c9;
+    --syn-com: #7b8794;
+    --syn-fn:  #0b62c4;
+    --syn-typ: #8a5a00;
+    --syn-var: #06776a;
+    --syn-mut: #8892a0;
+  }
+}
+
+/* highlight.js */
+.hljs-keyword, .hljs-selector-tag, .hljs-literal, .hljs-section, .hljs-doctag { color: var(--syn-key); }
+.hljs-string, .hljs-regexp, .hljs-addition, .hljs-attribute, .hljs-meta .hljs-string { color: var(--syn-str); }
+.hljs-number, .hljs-symbol, .hljs-bullet, .hljs-link { color: var(--syn-num); }
+.hljs-comment, .hljs-quote { color: var(--syn-com); font-style: italic; }
+.hljs-title, .hljs-title.function_, .hljs-name, .hljs-selector-id, .hljs-selector-class { color: var(--syn-fn); }
+.hljs-title.class_, .hljs-type, .hljs-built_in, .hljs-class .hljs-title { color: var(--syn-typ); }
+.hljs-attr, .hljs-variable, .hljs-template-variable, .hljs-params, .hljs-property { color: var(--syn-var); }
+.hljs-meta, .hljs-punctuation, .hljs-operator, .hljs-deletion { color: var(--syn-mut); }
+.hljs-emphasis { font-style: italic; }
+.hljs-strong { font-weight: 700; }
+
+/* deck — classes emitted by site/highlight.mjs */
+.dk-kw { color: var(--syn-key); }
+.dk-inline, .dk-param { color: var(--syn-var); }
+.dk-num { color: var(--syn-num); }
+.dk-id { color: var(--syn-typ); }
+.dk-val { color: var(--syn-str); }
+.dk-comment { color: var(--syn-com); font-style: italic; }
+.dk-ph { color: var(--syn-mut); font-style: italic; }
+/* A step grid reads as rhythm, so `x` has to pop off `.` at a glance. */
+.dk-step { color: var(--accent); font-weight: 700; }
+
+/* ── tables ──────────────────────────────────────────────────────────────── */
+
+.table-wrap, main table { display: block; overflow-x: auto; }
+main table { width: 100%; border-collapse: collapse; margin: 18px 0; font-size: 14px; }
+main th, main td { border: 1px solid var(--line); padding: 8px 12px; text-align: left; vertical-align: top; }
+main th { background: var(--panel); font-weight: 600; }
+main tbody tr:nth-child(even) { background: color-mix(in srgb, var(--panel) 50%, transparent); }
+
+/* ── playable deck blocks ────────────────────────────────────────────────── */
+
+.deck-block { position: relative; }
+.deck-block > pre { padding-right: 130px; }
+.deck-block > deck-player { position: absolute; top: 22px; right: 14px; color: var(--accent); }
+
+/* ── pager + footer ──────────────────────────────────────────────────────── */
+
+.pager {
+  display: flex; justify-content: space-between; gap: 16px;
+  margin-top: 56px; padding-top: 22px; border-top: 1px solid var(--line);
+}
+.pager a {
+  flex: 0 1 46%; padding: 12px 16px;
+  border: 1px solid var(--line); border-radius: 8px;
+  color: var(--fg); font-weight: 600;
+}
+.pager a:hover { border-color: var(--accent); text-decoration: none; }
+.pager .next { text-align: right; }
+.pager a span { display: block; font-size: 11px; font-weight: 400; color: var(--dim); text-transform: uppercase; letter-spacing: 0.1em; }
+.edit { margin-top: 40px; font-size: 13px; color: var(--dim); }
+
+/* ── responsive ──────────────────────────────────────────────────────────── */
+
+@media (max-width: 1100px) {
+  .layout { grid-template-columns: var(--sidebar) minmax(0, 1fr); }
+  .toc { display: none; }
+}
+@media (max-width: 760px) {
+  .layout { grid-template-columns: minmax(0, 1fr); gap: 24px; padding: 24px 18px 72px; }
+  .sidebar {
+    position: static; max-height: none;
+    border-bottom: 1px solid var(--line); padding-bottom: 16px;
+  }
+  main h1 { font-size: 27px; }
+  .pager { flex-direction: column; }
+  .pager a { flex: 1 1 auto; }
+  .deck-block > pre { padding-right: 18px; padding-top: 52px; }
+  .deck-block > deck-player { top: 12px; right: 12px; }
+}

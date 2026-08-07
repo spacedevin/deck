@@ -1,0 +1,75 @@
+# Build the docs site and deploy it to GitHub Pages.
+#
+# The site is generated from the markdown ALREADY IN THIS REPO (README, docs/*.md, the player's docs)
+# — see site/build.mjs. Adding a page means adding a `.md` file; there is nothing to register here.
+#
+# One-time setup: repo Settings > Pages > Build and deployment > Source = "GitHub Actions".
+# The site lands at https://spacedevin.github.io/deck/, which is why SITE_BASE defaults to /deck/.
+
+name: Pages
+
+on:
+  push:
+    branches: [main]
+    # Only rebuild when something the site is built FROM changes.
+    # Globs, not filenames: the generator discovers markdown, so a NEW .md in one of these trees has
+    # to trigger a rebuild too. Listing specific files would silently skip it.
+    paths:
+      - "README.md"
+      - "docs/**/*.md"
+      - "packages/player/**/*.md"
+      - "site/**"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Never let two deploys race; queue instead, and don't cancel a run that is mid-deploy.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build site
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install dependencies
+        run: npm ci
+
+      # `npm run site` builds both bundles first: the language build supplies `.deck` syntax
+      # highlighting from its own keyword tables, and the player build supplies the play buttons.
+      # Without either the site still builds — those blocks are just plain (the log says so).
+      - name: Build site
+        run: npm run site
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site/out
+
+  deploy:
+    name: Deploy
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

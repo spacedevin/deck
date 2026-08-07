@@ -1,0 +1,74 @@
+{
+  "name": "@spacedevin/deck-player",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Web Audio player for the .deck language — chip-tune synths, transport, and a <deck-player> element",
+  "license": "PIF",
+  "author": "spacedevin",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/spacedevin/deck.git",
+    "directory": "packages/player"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "tish": {
+    "module": "./src/index.tish"
+  },
+  "main": "./dist/deck-player.js",
+  "module": "./dist/deck-player.js",
+  "types": "./types/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./types/index.d.ts",
+      "tish": "./src/index.tish",
+      "import": "./dist/deck-player.js",
+      "require": "./dist/deck-player.js",
+      "default": "./dist/deck-player.js"
+    },
+    "./element": {
+      "types": "./types/element.d.ts",
+      "import": "./element/deck-player-element.js",
+      "default": "./element/deck-player-element.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "src/",
+    "dist/",
+    "element/",
+    "types/",
+    "README.md",
+    "AGENTS.md"
+  ],
+  "scripts": {
+    "build": "tish build src/index.tish -o dist/deck-player.js --target js",
+    "test": "npm run build && node --test test/schedule.mjs test/song.mjs test/voices.mjs",
+    "prepack": "npm run build",
+    "prepublishOnly": "npm run build"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "keywords": [
+    "deck",
+    "tish",
+    "web-audio",
+    "chiptune",
+    "player",
+    "gameboy",
+    "gba"
+  ],
+  "dependencies": {
+    "@spacedevin/deck": "file:../.."
+  },
+  "peerDependencies": {
+    "@tishlang/tish": ">=3.2.2"
+  },
+  "peerDependenciesMeta": {
+    "@tishlang/tish": {
+      "optional": true
+    }
+  }
+}

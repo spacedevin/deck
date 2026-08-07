@@ -1,0 +1,701 @@
+// AST → Song IR. This is the host-policy layer.
+//
+// @spacedevin/deck is deliberately parse-only: "an absent optional is null so the host applies its own
+// default, and there is no clamping or range checking — that is host policy, and hosts differ"
+// (docs/DECK_GRAMMAR.md). Everything that sentence excludes happens in this file: defaults, clamps,
+// the steps-vs-notes rule, bar-selector expansion, and per-bar step pitch.
+//
+// The defaults come from the grammar's own tables; the generator param vocabulary is cross-checked
+// against tish-gba's build-time bake (crates/tish-gba-scenepack/src/deckpack.rs), which is the
+// canonical list for the two chip synths.
+
+import { parseProgram, parseTrackBody, barSelectorMatches, snakeToCamel } from '@spacedevin/deck'
+import { defaultParamsForGeneratorId, isPortedGeneratorId, knownUnportedGeneratorIds } from '../generators/Registry.tish'
+import { bootDeckRegistries } from './DeckIds.tish'
+
+// ── clamps ────────────────────────────────────────────────────────────────────
+
+fn clampNum(v, lo, hi) {
+  let n = Number(v)
+  if (n !== n) {
+    return lo
+  }
+  if (n < lo) {
+    return lo
+  }
+  if (n > hi) {
+    return hi
+  }
+  return n
+}
+
+fn clampVel(v) {
+  if (v === null || v === undefined) {
+    return 100
+  }
+  return Math.round(clampNum(v, 1, 127))
+}
+
+fn clampProb(v) {
+  if (v === null || v === undefined) {
+    return 1
+  }
+  return clampNum(v, 0, 1)
+}
+
+fn clampRatchet(v) {
+  if (v === null || v === undefined) {
+    return 1
+  }
+  return Math.round(clampNum(v, 1, 8))
+}
+
+fn clampNudge(v) {
+  if (v === null || v === undefined) {
+    return 0
+  }
+  return clampNum(v, -0.5, 0.5)
+}
+
+// ── channel shell ─────────────────────────────────────────────────────────────
+
+fn emptyChannel(index, id, name, generatorId) {
+  return {
+    index: index,
+    id: id,
+    name: name,
+    generatorId: generatorId,
+    generatorParams: {},
+    generatorSpec: null,
+    waveTable: null,
+    minIntensity: 0,
+    patternBars: 1,
+    loopCap: null,
+    pianoNotes: [],
+    steps: null,
+    stepPitch: 36,
+    stepPitchByBar: null,
+    transpose: 0,
+    // mix
+    gain: 1,
+    pan: 0,
+    mute: false,
+    solo: false,
+    eqLo: 0,
+    eqMid: 0,
+    eqHi: 0,
+    // fx
+    reverbSend: 0,
+    drive: 0,
+    lfoRate: 0,
+    lfoDepth: 0,
+    cutoff: 20000,
+    res: 0,
+    filterType: "lowpass",
+    // voice
+    octave: 0,
+    arp: null,
+    arpRate: null,
+    chord: null,
+    inversion: null,
+    strum: null
+  }
+}
+
+// ── body rows → channel ───────────────────────────────────────────────────────
+
+fn applyMixRow(ch, row) {
+  if (row.gain !== null && row.gain !== undefined) {
+    ch.gain = clampNum(row.gain, 0, 2)
+  }
+  if (row.pan !== null && row.pan !== undefined) {
+    ch.pan = clampNum(row.pan, -1, 1)
+  }
+  if (row.mute !== null && row.mute !== undefined) {
+    ch.mute = row.mute === true
+  }
+  if (row.solo !== null && row.solo !== undefined) {
+    ch.solo = row.solo === true
+  }
+  if (row.eqLo !== null && row.eqLo !== undefined) {
+    ch.eqLo = clampNum(row.eqLo, -24, 24)
+  }
+  if (row.eqMid !== null && row.eqMid !== undefined) {
+    ch.eqMid = clampNum(row.eqMid, -24, 24)
+  }
+  if (row.eqHi !== null && row.eqHi !== undefined) {
+    ch.eqHi = clampNum(row.eqHi, -24, 24)
+  }
+}
+
+fn applyFxRow(ch, row) {
+  let p = row.params
+  if (!p) {
+    return
+  }
+  if (p.reverbSend !== null && p.reverbSend !== undefined) {
+    ch.reverbSend = clampNum(p.reverbSend, 0, 1)
+  }
+  if (p.drive !== null && p.drive !== undefined) {
+    ch.drive = clampNum(p.drive, 0, 10)
+  }
+  if (p.lfoRate !== null && p.lfoRate !== undefined) {
+    ch.lfoRate = clampNum(p.lfoRate, 0, 40)
+  }
+  if (p.lfoDepth !== null && p.lfoDepth !== undefined) {
+    ch.lfoDepth = clampNum(p.lfoDepth, 0, 1)
+  }
+  if (p.cutoff !== null && p.cutoff !== undefined) {
+    ch.cutoff = clampNum(p.cutoff, 20, 20000)
+  }
+  if (p.res !== null && p.res !== undefined) {
+    ch.res = clampNum(p.res, 0, 30)
+  }
+  if (p.filterType !== null && p.filterType !== undefined) {
+    ch.filterType = String(p.filterType)
+  }
+}
+
+fn applyVoiceRow(ch, row) {
+  let p = row.params
+  if (!p) {
+    return
+  }
+  if (p.octave !== null && p.octave !== undefined) {
+    ch.octave = Math.round(clampNum(p.octave, -4, 4))
+  }
+  if (p.arp !== null && p.arp !== undefined) {
+    ch.arp = String(p.arp)
+  }
+  if (p.chord !== null && p.chord !== undefined) {
+    ch.chord = String(p.chord)
+  }
+  if (p.inversion !== null && p.inversion !== undefined) {
+    ch.inversion = String(p.inversion)
+  }
+  if (p.strum !== null && p.strum !== undefined) {
+    ch.strum = clampNum(p.strum, 0, 200)
+  }
+  // The grammar spells this `arprate`, one word, so the parser's camelCasing leaves it alone.
+  if (p.arprate !== null && p.arprate !== undefined) {
+    ch.arpRate = String(p.arprate)
+  }
+  if (p.arpRate !== null && p.arpRate !== undefined) {
+    ch.arpRate = String(p.arpRate)
+  }
+}
+
+fn mergeParams(target, src) {
+  if (!src) {
+    return
+  }
+  let keys = Object.keys(src)
+  let i = 0
+  while (i < keys.length) {
+    target[keys[i]] = src[keys[i]]
+    i = i + 1
+  }
+}
+
+/**
+ * `gen k v k v …` pairs positionally, so an odd token count silently shifts every pair by one and a
+ * VALUE becomes a key. The tell is a numeric key: `gen adsr attack 0 decay 0.1` yields
+ * `{adsr:"attack", 0:"decay", 0.1:"sustain"}`, which would otherwise be merged as three junk params
+ * and quietly ignored by the voice. Report it instead — a malformed `gen` line is worth a message.
+ */
+fn checkGenParams(params, lineNo, errors) {
+  if (!params) {
+    return false
+  }
+  let keys = Object.keys(params)
+  let i = 0
+  while (i < keys.length) {
+    let n = Number(keys[i])
+    if (n === n && keys[i].length > 0) {
+      errors.push({
+        line: lineNo,
+        msg: "malformed `gen` line: expected `gen <key> <value> …` pairs, got a value where a key belongs (near `" + keys[i] + "`)"
+      })
+      return false
+    }
+    i = i + 1
+  }
+  return true
+}
+
+// ── steps ─────────────────────────────────────────────────────────────────────
+
+fn makeSteps(on) {
+  let out = []
+  let i = 0
+  while (i < on.length) {
+    out.push({ on: on[i] === true, vel: 100, prob: 1, ratchet: 1, nudge: 0, lyric: null })
+    i = i + 1
+  }
+  return out
+}
+
+/// A bare `steps` line resets the locks; the lanes that follow restore deviations. Values run out ⇒
+/// the rest of the pattern keeps the default, which is how a short lane line covers a long pattern.
+fn applyStepLane(steps, row) {
+  if (!steps) {
+    return
+  }
+  let vals = row.values
+  if (!vals) {
+    return
+  }
+  let i = 0
+  while (i < vals.length && i < steps.length) {
+    let v = vals[i]
+    if (v !== null && v !== undefined) {
+      if (row.lane === "vel") {
+        steps[i].vel = clampVel(v)
+      } else if (row.lane === "prob") {
+        steps[i].prob = clampProb(v)
+      } else if (row.lane === "ratchet") {
+        steps[i].ratchet = clampRatchet(v)
+      } else if (row.lane === "nudge") {
+        steps[i].nudge = clampNudge(v)
+      } else if (row.lane === "lyric") {
+        steps[i].lyric = String(v)
+      }
+    }
+    i = i + 1
+  }
+}
+
+// ── notes ─────────────────────────────────────────────────────────────────────
+
+/**
+ * Expand one `note` row to absolute positions.
+ *
+ * Without a bar selector the note keeps its absolute beat — including past `* N`. That is not a
+ * mistake in the source: `* N` is the declared pattern length, but tish-gba's bake computes the real
+ * span as `max(every note end, bars * 4)` (deckpack.rs), so a track that writes 8 bars of notes under
+ * a bare header is an 8-bar track. Rejecting those would have silenced 10 of the 62 songs in the
+ * tish-gba corpus.
+ *
+ * With a selector the grammar keeps `startBeat < 4` and the note repeats on every matching bar of the
+ * DECLARED length — so expansion happens here, at apply time, and the sequencer only ever sees
+ * absolute beats.
+ */
+fn expandNoteRow(row, declaredBars, errors) {
+  let out = []
+  let dur = Number(row.durBeats)
+  if (dur !== dur || dur <= 0) {
+    dur = 0.25
+  }
+  let base = {
+    pitch: Math.round(Number(row.midi)),
+    durBeats: dur,
+    vel: clampVel(row.vel),
+    prob: clampProb(row.prob),
+    ratchet: clampRatchet(row.ratchet),
+    nudge: clampNudge(row.nudge),
+    lyric: (row.lyric !== null && row.lyric !== undefined) ? String(row.lyric) : null
+  }
+  if (row.bar) {
+    let inBar = Number(row.startBeat)
+    if (inBar !== inBar || inBar < 0) {
+      inBar = 0
+    }
+    if (inBar >= 4) {
+      errors.push({ line: row.lineNo, msg: "note with `bar` must start before beat 4 of its bar" })
+      return out
+    }
+    let b = 0
+    while (b < declaredBars) {
+      if (barSelectorMatches(row.bar, b)) {
+        let d = base.durBeats
+        // A bar-selected note belongs to its bar; don't let it bleed past the bar line.
+        if (inBar + d > 4) {
+          d = 4 - inBar
+        }
+        out.push({
+          pitch: base.pitch, startBeat: b * 4 + inBar, durBeats: d, vel: base.vel,
+          prob: base.prob, ratchet: base.ratchet, nudge: base.nudge, lyric: base.lyric
+        })
+      }
+      b = b + 1
+    }
+    return out
+  }
+  let start = Number(row.startBeat)
+  if (start !== start || start < 0) {
+    start = 0
+  }
+  out.push({
+    pitch: base.pitch, startBeat: start, durBeats: base.durBeats, vel: base.vel,
+    prob: base.prob, ratchet: base.ratchet, nudge: base.nudge, lyric: base.lyric
+  })
+  return out
+}
+
+/**
+ * `wave <name> <32 hex nibbles>` → 32 samples in -1..1.
+ *
+ * Each nibble is a 4-bit wave RAM level, so 0 → -1, 7.5 → 0, 15 → +1. This is the inverse of the
+ * bake's `wave_nibbles` (deckpack.rs), which writes `(phase * 15).round()` for a saw — so a table
+ * decoded here and a table baked to a ROM describe the same waveform.
+ */
+fn decodeWaveTable(hex) {
+  let s = String(hex)
+  if (s.length !== 32) {
+    return null
+  }
+  let out = []
+  let i = 0
+  while (i < 32) {
+    let n = parseInt(s.charAt(i), 16)
+    if (n !== n) {
+      return null
+    }
+    out.push(n / 7.5 - 1)
+    i = i + 1
+  }
+  return out
+}
+
+fn collectWaveTables(ast, errors) {
+  let tables = {}
+  let entries = ast.hostStatements ? ast.hostStatements.wave : null
+  if (!entries) {
+    return tables
+  }
+  let i = 0
+  while (i < entries.length) {
+    let toks = entries[i].value
+    if (toks && toks.length >= 3) {
+      let name = String(toks[1])
+      let table = decodeWaveTable(toks[2])
+      if (table) {
+        tables[name] = table
+      } else {
+        errors.push({ line: entries[i].lineNo, msg: "wave `" + name + "` needs 32 hex digits" })
+      }
+    } else {
+      errors.push({ line: entries[i].lineNo, msg: "wave needs a name and 32 hex digits" })
+    }
+    i = i + 1
+  }
+  return tables
+}
+
+fn maxNoteEnd(notes) {
+  let m = 0
+  let i = 0
+  while (i < notes.length) {
+    let end = notes[i].startBeat + notes[i].durBeats
+    if (end > m) {
+      m = end
+    }
+    i = i + 1
+  }
+  return m
+}
+
+// ── track → channel ───────────────────────────────────────────────────────────
+
+fn clampIntensity(v) {
+  return Math.round(clampNum(v, 0, 3))
+}
+
+fn applyTrack(track, index, errors, substitutions, waveTables) {
+  let generatorId = track.generatorId ? track.generatorId : "basicOsc"
+  if (!isPortedGeneratorId(generatorId)) {
+    let known = knownUnportedGeneratorIds()
+    let isKnown = false
+    let k = 0
+    while (k < known.length) {
+      if (known[k] === generatorId) {
+        isKnown = true
+      }
+      k = k + 1
+    }
+    substitutions.push({
+      trackId: track.id,
+      generatorId: generatorId,
+      reason: isKnown ? "not ported to deck-player yet" : "unknown generator id"
+    })
+  }
+
+  let ch = emptyChannel(index, track.id, track.name, generatorId)
+
+  // `* N` is the pattern LENGTH in bars; `* inf` / unset means a one-bar pattern that loops.
+  if (track.loopBars !== null && track.loopBars !== undefined && Math.floor(Number(track.loopBars)) >= 1) {
+    ch.patternBars = Math.floor(Number(track.loopBars))
+  }
+
+  // Generator defaults, then macro overrides from the track header, then `gen` body rows.
+  ch.generatorParams = defaultParamsForGeneratorId(generatorId)
+  mergeParams(ch.generatorParams, track.genParams)
+
+  let parsed = parseTrackBody(track.body)
+  let i = 0
+  while (i < parsed.errors.length) {
+    errors.push(parsed.errors[i])
+    i = i + 1
+  }
+
+  let noteRows = []
+  let r = 0
+  while (r < parsed.rows.length) {
+    let row = parsed.rows[r]
+    let kind = row.kind
+    if (kind === "mix") {
+      applyMixRow(ch, row)
+    } else if (kind === "fx") {
+      applyFxRow(ch, row)
+    } else if (kind === "voice") {
+      applyVoiceRow(ch, row)
+    } else if (kind === "gen") {
+      if (checkGenParams(row.params, row.lineNo, errors)) {
+        mergeParams(ch.generatorParams, row.params)
+      }
+    } else if (kind === "adsr") {
+      if (row.a !== null && row.a !== undefined) { ch.generatorParams.attack = row.a }
+      if (row.d !== null && row.d !== undefined) { ch.generatorParams.decay = row.d }
+      if (row.s !== null && row.s !== undefined) { ch.generatorParams.sustain = row.s }
+      if (row.r !== null && row.r !== undefined) { ch.generatorParams.release = row.r }
+    } else if (kind === "steps") {
+      ch.steps = makeSteps(row.on)
+    } else if (kind === "stepLane") {
+      applyStepLane(ch.steps, row)
+    } else if (kind === "stepPitch") {
+      if (row.bar) {
+        if (!ch.stepPitchByBar) {
+          ch.stepPitchByBar = []
+          let b = 0
+          while (b < ch.patternBars) {
+            ch.stepPitchByBar.push(ch.stepPitch)
+            b = b + 1
+          }
+        }
+        let b2 = 0
+        while (b2 < ch.patternBars) {
+          if (barSelectorMatches(row.bar, b2)) {
+            ch.stepPitchByBar[b2] = Math.round(Number(row.midi))
+          }
+          b2 = b2 + 1
+        }
+      } else {
+        ch.stepPitch = Math.round(Number(row.midi))
+      }
+    } else if (kind === "note") {
+      noteRows.push(row)
+    } else if (kind === "notesClear") {
+      noteRows = []
+    } else if (kind === "transpose") {
+      ch.transpose = Math.round(Number(row.semitones))
+    } else if (kind === "layer") {
+      ch.minIntensity = clampIntensity(row.level)
+    } else if (kind === "loops") {
+      // `loops inf` parses to cap null — an uncapped channel.
+      if (row.cap !== null && row.cap !== undefined) {
+        ch.loopCap = Math.max(1, Math.floor(Number(row.cap)))
+      } else {
+        ch.loopCap = null
+      }
+    }
+    r = r + 1
+  }
+
+  // Expansion needs the final declared bar count, so it runs after the whole body.
+  let declaredBars = ch.patternBars
+  let anyBarSelector = false
+  let n = 0
+  while (n < noteRows.length) {
+    if (noteRows[n].bar) {
+      anyBarSelector = true
+    }
+    let expanded = expandNoteRow(noteRows[n], declaredBars, errors)
+    let e = 0
+    while (e < expanded.length) {
+      ch.pianoNotes.push(expanded[e])
+      e = e + 1
+    }
+    n = n + 1
+  }
+
+  // `* N` with everything written inside bar 0 means "play this bar N times" — the bake replicates it
+  // (deckpack.rs: "Repeat pattern for * N bars if notes only cover bar 0"). Skipped when a bar
+  // selector is present, since those notes already said which bars they belong to.
+  let noteEnd = maxNoteEnd(ch.pianoNotes)
+  if (declaredBars > 1 && ch.pianoNotes.length > 0 && !anyBarSelector && noteEnd <= 4 + 1e-6) {
+    let base = ch.pianoNotes
+    let copies = []
+    let b = 1
+    while (b < declaredBars) {
+      let k = 0
+      while (k < base.length) {
+        let src = base[k]
+        copies.push({
+          pitch: src.pitch, startBeat: src.startBeat + b * 4, durBeats: src.durBeats, vel: src.vel,
+          prob: src.prob, ratchet: src.ratchet, nudge: src.nudge, lyric: src.lyric
+        })
+        k = k + 1
+      }
+      b = b + 1
+    }
+    let c = 0
+    while (c < copies.length) {
+      ch.pianoNotes.push(copies[c])
+      c = c + 1
+    }
+    noteEnd = maxNoteEnd(ch.pianoNotes)
+  }
+
+  // The looping span is whichever is longer: the declared length, or what the notes actually need.
+  let neededBars = Math.ceil(noteEnd / 4)
+  if (neededBars > ch.patternBars) {
+    ch.patternBars = neededBars
+  }
+
+  // "Integer shift applied to collected `note` pitches for that block" — notes only, per the grammar.
+  if (ch.transpose !== 0) {
+    let ti = 0
+    while (ti < ch.pianoNotes.length) {
+      ch.pianoNotes[ti].pitch = ch.pianoNotes[ti].pitch + ch.transpose
+      ti = ti + 1
+    }
+  }
+
+  // Steps vs notes: notes win. "If a track block contains any `note` lines, steps for that channel
+  // are cleared." (docs/DECK_GRAMMAR.md)
+  if (ch.pianoNotes.length > 0) {
+    ch.steps = null
+  }
+
+  // The bake also accepts the level as a track-header param (`… gen gameBoyDmg layer 2`).
+  let hdr = track.genParams
+  if (hdr) {
+    if (hdr.layer !== null && hdr.layer !== undefined) {
+      ch.minIntensity = clampIntensity(hdr.layer)
+    } else if (hdr.intensity !== null && hdr.intensity !== undefined) {
+      ch.minIntensity = clampIntensity(hdr.intensity)
+    } else if (hdr.minIntensity !== null && hdr.minIntensity !== undefined) {
+      ch.minIntensity = clampIntensity(hdr.minIntensity)
+    }
+  }
+
+  // A `wave` table named by this channel's wave_shape wins over the built-in shapes — the same
+  // `named_waves.get(wave_shape).unwrap_or_else(built_in)` order the bake uses.
+  if (ch.generatorParams.waveShape !== null && ch.generatorParams.waveShape !== undefined) {
+    let named = waveTables[String(ch.generatorParams.waveShape)]
+    if (named) {
+      ch.waveTable = named
+    }
+  }
+
+  if (track.genBlocks && track.genBlocks.length > 0) {
+    ch.generatorSpec = track.genBlocks[track.genBlocks.length - 1]
+  }
+
+  return ch
+}
+
+// ── entry point ───────────────────────────────────────────────────────────────
+
+/**
+ * Parse `.deck` source into a Song the player can sequence. Never throws: malformed lines land in
+ * `errors`, matching the parser's own error-tolerant contract.
+ *
+ * Not yet interpreted (collected on the AST, ignored here): session/clips, `song`/`follow`
+ * arrangement, `auto` automation, `master_mix`/`actor_mix`, `@` directives, `deck` routing. They are
+ * reported in `ignored` so a caller can say so rather than silently dropping them.
+ */
+export fn parseSong(source) {
+  bootDeckRegistries()
+
+  let ast = parseProgram(source)
+  let errors = []
+  let substitutions = []
+  let i = 0
+  while (i < ast.errors.length) {
+    errors.push(ast.errors[i])
+    i = i + 1
+  }
+
+  let waveTables = collectWaveTables(ast, errors)
+
+  let channels = []
+  let removed = ast.removeTrackIds ? ast.removeTrackIds : []
+  let t = 0
+  while (t < ast.tracks.length) {
+    let track = ast.tracks[t]
+    let isRemoved = false
+    let ri = 0
+    while (ri < removed.length) {
+      if (removed[ri] === track.id) {
+        isRemoved = true
+      }
+      ri = ri + 1
+    }
+    if (!isRemoved) {
+      channels.push(applyTrack(track, channels.length, errors, substitutions, waveTables))
+    }
+    t = t + 1
+  }
+
+  let ignored = []
+  if (ast.clipBlocks && ast.clipBlocks.length > 0) { ignored.push("clips") }
+  if (ast.song) { ignored.push("song") }
+  if (ast.follow) { ignored.push("follow") }
+  if (ast.autos && ast.autos.length > 0) { ignored.push("auto") }
+  if (ast.masterMixTokens) { ignored.push("master_mix") }
+  if (ast.actorMixRows && ast.actorMixRows.length > 0) { ignored.push("actor_mix") }
+  if (ast.directives && ast.directives.length > 0) { ignored.push("directives") }
+  if (ast.sessionSlots && ast.sessionSlots.length > 0) { ignored.push("session") }
+
+  // Any solo anywhere mutes every non-soloed channel — the usual mixer rule.
+  let anySolo = false
+  let s = 0
+  while (s < channels.length) {
+    if (channels[s].solo) {
+      anySolo = true
+    }
+    s = s + 1
+  }
+
+  // Loop span: the longest pattern. Total length is finite only if every channel has a `loops` cap.
+  let loopBeats = 4
+  let totalBeats = 0
+  let allCapped = channels.length > 0
+  let c = 0
+  while (c < channels.length) {
+    let span = channels[c].patternBars * 4
+    if (span > loopBeats) {
+      loopBeats = span
+    }
+    if (channels[c].loopCap === null) {
+      allCapped = false
+    } else {
+      let end = channels[c].loopCap * span
+      if (end > totalBeats) {
+        totalBeats = end
+      }
+    }
+    c = c + 1
+  }
+
+  return {
+    version: ast.tplVersion,
+    bpm: (ast.bpm !== null && ast.bpm !== undefined) ? clampNum(ast.bpm, 40, 300) : 120,
+    swing: (ast.swing !== null && ast.swing !== undefined) ? clampNum(ast.swing, 0, 1) : 0,
+    songSeed: (ast.songSeed !== null && ast.songSeed !== undefined) ? Math.floor(ast.songSeed) : 0,
+    scaleRoot: ast.scaleRoot,
+    scaleMode: ast.scaleMode,
+    channels: channels,
+    anySolo: anySolo,
+    waveTables: waveTables,
+    // Stem gating level, 0..3. Everything plays at 3; lowering it drops the higher layers, which is
+    // how the GBA host ducks a soundtrack down to its core parts.
+    intensity: 3,
+    loopBeats: loopBeats,
+    totalBeats: allCapped ? totalBeats : null,
+    substitutions: substitutions,
+    ignored: ignored,
+    errors: errors
+  }
+}

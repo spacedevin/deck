@@ -1,0 +1,199 @@
+// The lookahead ("two clocks") transport.
+//
+// Ported from Deckard (tish-midi/src/audio/Transport.tish). Three changes, all because this is a
+// library rather than an app:
+//
+//   1. No signal bus. Deckard publishes to a global `signals` object; here the caller passes
+//      callbacks, so two players on one page don't cross-talk.
+//   2. Pause exists. Deckard only has stop/restart, which is fine for a DJ rig and wrong for a play
+//      button. Pause is `ctx.suspend()` — it freezes the audio clock itself, so every scheduled note
+//      and the scheduler's own cursor resume exactly where they were. Nothing to reconcile.
+//   3. The clock worklet is compiled from an inline string into a Blob URL rather than fetched from
+//      `/clock-worklet.js`. A consumer must not have to copy an asset into their web root to make an
+//      npm package work.
+
+import { swingOffsetSec, stepsToScheduleInWindow, underrunsInBatch } from '../schedule/Scheduler.tish'
+
+/// Runs on the audio thread and pings the main thread every ~20 ms. An audio-thread timer is immune
+/// to the background-tab throttling that would starve a `setTimeout` scheduler and drop notes.
+fn clockWorkletSource() {
+  return "class DeckClockProcessor extends AudioWorkletProcessor {\n" +
+    "  constructor () { super(); this._acc = 0 }\n" +
+    "  process () {\n" +
+    "    this._acc += 128\n" +
+    "    if (this._acc >= sampleRate * 0.02) { this._acc = 0; this.port.postMessage(0) }\n" +
+    "    return true\n" +
+    "  }\n" +
+    "}\n" +
+    "registerProcessor('deck-clock', DeckClockProcessor)\n"
+}
+
+/**
+ * cfg: {
+ *   secPerStep()  -> seconds per 16th step
+ *   swing()       -> 0..1
+ *   onStep(step, when) -> true to stop after this step
+ *   onStopped()   -> called once when the transport stops on its own
+ * }
+ */
+export fn createTransport(ctx, cfg) {
+  let LOOKAHEAD_SEC = 0.1
+  let MAX_BATCH = 256
+
+  let active = false
+  let paused = false
+  let globalTick = 0
+  let nextStepSec = 0
+  let underruns = 0
+  let node = null
+  let timer = null
+  let workletUrl = null
+
+  fn runScheduler() {
+    if (!active || paused) {
+      return
+    }
+    let sp = cfg.secPerStep()
+    let sw = cfg.swing ? cfg.swing() : 0
+    let batch = stepsToScheduleInWindow(globalTick, nextStepSec, ctx.currentTime, LOOKAHEAD_SEC, sp, MAX_BATCH)
+    underruns = underruns + underrunsInBatch(batch.items, ctx.currentTime)
+    let i = 0
+    while (i < batch.items.length) {
+      let it = batch.items[i]
+      // Swing offsets the PLAYED time only; the base grid stays un-swung so nothing accumulates.
+      let playAt = it.when + swingOffsetSec(it.step, sp, sw)
+      let stop = cfg.onStep(it.step, playAt)
+      if (stop) {
+        globalTick = it.step + 1
+        nextStepSec = it.when + sp
+        stopInternal(true)
+        return
+      }
+      i = i + 1
+    }
+    globalTick = batch.nextStep
+    nextStepSec = batch.nextSec
+  }
+
+  fn onClockTick(ev) {
+    runScheduler()
+  }
+
+  fn startPump() {
+    if (ctx.audioWorklet && !node) {
+      let src = clockWorkletSource()
+      let blob = new Blob([src], { type: "application/javascript" })
+      workletUrl = URL.createObjectURL(blob)
+      // Two-arg `then`: the rejection handler is a no-op because the timer below already covers a
+      // browser where `addModule` fails (old engine, blocked blob URL).
+      ctx.audioWorklet.addModule(workletUrl).then(fn () {
+        if (!active) {
+          return
+        }
+        node = new AudioWorkletNode(ctx, "deck-clock")
+        node.port.onmessage = onClockTick
+        // Never connected to the destination: it produces no audio, it only ticks.
+      }, fn () { })
+    }
+    // The timer runs regardless. It is the fallback when `addModule` fails or is still pending, and
+    // a harmless no-op alongside the worklet — `stepsToScheduleInWindow` is idempotent over a window
+    // that has already been consumed.
+    if (!timer) {
+      timer = setInterval(() => { runScheduler() }, 25)
+    }
+  }
+
+  fn stopPump() {
+    if (timer) {
+      clearInterval(timer)
+      timer = null
+    }
+    if (node) {
+      node.port.onmessage = null
+      node.disconnect()
+      node = null
+    }
+    if (workletUrl) {
+      URL.revokeObjectURL(workletUrl)
+      workletUrl = null
+    }
+  }
+
+  fn stopInternal(notify) {
+    if (!active) {
+      return
+    }
+    active = false
+    paused = false
+    stopPump()
+    if (notify && cfg.onStopped) {
+      cfg.onStopped()
+    }
+  }
+
+  return {
+    start: fn (startStep) {
+      if (active) {
+        return
+      }
+      active = true
+      paused = false
+      underruns = 0
+      globalTick = (startStep !== null && startStep !== undefined) ? Math.floor(startStep) : 0
+      // A beat of headroom so the first step is scheduled ahead rather than already late.
+      nextStepSec = ctx.currentTime + 0.06
+      startPump()
+      runScheduler()
+    },
+
+    pause: fn () {
+      if (!active || paused) {
+        return
+      }
+      paused = true
+      // Freezing the clock freezes everything: scheduled notes, the lookahead cursor, all of it.
+      if (ctx.suspend) {
+        ctx.suspend()
+      }
+    },
+
+    resume: fn () {
+      if (!active || !paused) {
+        return
+      }
+      paused = false
+      if (ctx.resume) {
+        ctx.resume().then(() => { runScheduler() })
+      } else {
+        runScheduler()
+      }
+    },
+
+    stop: fn () {
+      stopInternal(false)
+    },
+
+    isActive: fn () { return active },
+    isPaused: fn () { return paused },
+    getStep: fn () { return globalTick },
+    underruns: fn () { return underruns },
+
+    /// The step the listener is hearing right now, as opposed to the one being scheduled.
+    audibleStep: fn () {
+      let sp = cfg.secPerStep()
+      if (sp <= 0) {
+        return globalTick
+      }
+      let ahead = Math.ceil((nextStepSec - ctx.currentTime) / sp)
+      if (ahead < 0) {
+        ahead = 0
+      }
+      let s = globalTick - ahead
+      return s > 0 ? s : 0
+    },
+
+    dispose: fn () {
+      stopInternal(false)
+    }
+  }
+}

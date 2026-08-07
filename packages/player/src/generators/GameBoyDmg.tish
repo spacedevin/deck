@@ -1,0 +1,321 @@
+// Game Boy (LR35902 / DMG PSG) emulation.
+//
+// Ported from Deckard (tish-midi/src/generators/GameBoyDmg.tish). The waveform tables are baked into
+// tiny looping AudioBuffers and pitched with `playbackRate` — that is what gives the aliasing and
+// the hard edges a band-limited OscillatorNode would smooth away.
+//
+// Two things here are real hardware, not approximations: the noise channel is an actual 15/7-bit
+// LFSR rendered to a buffer, and the wave channel is quantized to 4 bits (16 levels) like wave RAM.
+//
+// One deliberate deviation from Deckard: node cleanup is RETURNED rather than done in a per-note
+// `setTimeout`. Wall-clock timers are wrong for an OfflineAudioContext render (which runs faster than
+// realtime) and untestable in Node. The dispatcher owns the cleanup policy — see Dispatch.tish. The
+// scheduled audio is byte-for-byte the same.
+
+import { normalizeDuty } from './Duty.tish'
+
+export fn defaultParamsForGameBoyDmg() {
+  return {
+    type: "pulse",
+    duty: "50",
+    envMode: "step",
+    vol: 15,
+    sweep: 0,
+    noiseMode: "long",
+    waveShape: "saw",
+    attack: 0,
+    decay: 0,
+    sustain: 15,
+    release: 0,
+    pitchDrop: 0,
+    pitchDec: 0.05,
+    vibRate: 0,
+    vibAmt: 0,
+    arpRate: 0,
+    arpSemis: 0,
+    // Hardware surface (round-trips to the GBA bake)
+    len: 0,
+    envStep: 0,
+    envUp: false,
+    sweepShift: 0,
+    sweepPeriod: 0,
+    sweepDown: false,
+    noiseShift: null,
+    noiseRatio: 0
+  }
+}
+
+fn getDmgPulseBuffer(ctx, duty) {
+  // `duty` is already canonical (see normalizeDuty), so 50% is the real default rather than the
+  // all-off sequence Deckard falls through to.
+  let seq = [0, 1, 1, 1, 1, 0, 0, 0]
+  if (duty === "12_5") seq = [0, 1, 0, 0, 0, 0, 0, 0]
+  if (duty === "25")   seq = [0, 1, 1, 0, 0, 0, 0, 0]
+  if (duty === "75")   seq = [1, 0, 0, 1, 1, 1, 1, 1]
+
+  let buf = ctx.createBuffer(1, 8, ctx.sampleRate)
+  let data = buf.getChannelData(0)
+  let i = 0
+  while (i < 8) {
+    data[i] = (seq[i] === 1) ? 1.0 : -1.0
+    i = i + 1
+  }
+  return buf
+}
+
+fn getDmgLfsrBuffer(ctx, mode) {
+  let steps = mode === 15 ? 32767 : 127
+  let buf = ctx.createBuffer(1, steps, ctx.sampleRate)
+  let data = buf.getChannelData(0)
+  let reg = 1
+  let i = 0
+  while (i < steps) {
+    let bit0 = reg & 1
+    let bitOther = (reg >> 1) & 1
+    let feedback = bit0 ^ bitOther
+    reg = (reg >> 1) | (feedback << 14)
+    if (mode === 7) {
+      reg = (reg & ~(1 << 6)) | (feedback << 6)
+    }
+    data[i] = (reg & 1) === 0 ? 1.0 : -1.0
+    i = i + 1
+  }
+  return buf
+}
+
+/// A `wave <name> <32 hex nibbles>` table, already decoded to -1..1 by Apply. Straight into the
+/// buffer — it is wave RAM, so it is 4-bit by construction and needs no further quantization.
+fn getNamedWaveBuffer(ctx, table) {
+  let buf = ctx.createBuffer(1, 32, ctx.sampleRate)
+  let data = buf.getChannelData(0)
+  let i = 0
+  while (i < 32) {
+    data[i] = table[i]
+    i = i + 1
+  }
+  return buf
+}
+
+fn getDmgWaveBuffer(ctx, shape) {
+  let buf = ctx.createBuffer(1, 32, ctx.sampleRate)
+  let data = buf.getChannelData(0)
+  let i = 0
+  while (i < 32) {
+    let v = 0
+    let phase = i / 32
+    if (shape === "saw") {
+      v = (phase * 2) - 1
+    } else if (shape === "square") {
+      v = phase < 0.5 ? 1 : -1
+    } else {
+      v = Math.sin(phase * Math.PI * 2)
+    }
+    // Quantize to 4-bit (16 levels), as wave RAM does.
+    v = Math.round(v * 7.5) / 7.5
+    data[i] = v
+    i = i + 1
+  }
+  return buf
+}
+
+export fn playGameBoyDmg(ctx, bus, t, midi, vel, durSec, ch, bendSemis) {
+  let gp = ch.generatorParams
+  if (!gp) gp = {}
+
+  let type = gp.type ? gp.type : "pulse"
+  let duty = normalizeDuty(gp.duty)
+  let envMode = gp.envMode ? gp.envMode : "step"
+  let vol = gp.vol !== null && gp.vol !== undefined ? Math.round(gp.vol) : 10
+  let sweep = gp.sweep !== null && gp.sweep !== undefined ? Math.round(gp.sweep) : 0
+  let noiseMode = gp.noiseMode ? gp.noiseMode : "long"
+  let waveShape = gp.waveShape ? gp.waveShape : "saw"
+
+  let attack = gp.attack !== null && gp.attack !== undefined ? gp.attack : 0
+  let decay = gp.decay !== null && gp.decay !== undefined ? gp.decay : 0
+  let sustain = gp.sustain !== null && gp.sustain !== undefined ? gp.sustain : 15
+  let release = gp.release !== null && gp.release !== undefined ? gp.release : 0
+  let pitchDrop = gp.pitchDrop !== null && gp.pitchDrop !== undefined ? Math.round(gp.pitchDrop) : 0
+  let pitchDec = gp.pitchDec !== null && gp.pitchDec !== undefined ? gp.pitchDec : 0.05
+  let vibRate = gp.vibRate !== null && gp.vibRate !== undefined ? gp.vibRate : 0
+  let vibAmt = gp.vibAmt !== null && gp.vibAmt !== undefined ? gp.vibAmt : 0
+  let arpRate = gp.arpRate !== null && gp.arpRate !== undefined ? gp.arpRate : 0
+  let arpSemis = gp.arpSemis !== null && gp.arpSemis !== undefined ? Math.round(gp.arpSemis) : 0
+  let len = gp.len !== null && gp.len !== undefined ? Math.round(gp.len) : 0
+  let envStep = gp.envStep !== null && gp.envStep !== undefined ? Math.round(gp.envStep) : 0
+  let envUp = gp.envUp === true
+  let sweepShift = gp.sweepShift !== null && gp.sweepShift !== undefined ? Math.round(gp.sweepShift) : 0
+  let sweepPeriod = gp.sweepPeriod !== null && gp.sweepPeriod !== undefined ? Math.round(gp.sweepPeriod) : 0
+  let sweepDown = gp.sweepDown === true || sweep < 0
+  let noiseShift = gp.noiseShift !== null && gp.noiseShift !== undefined ? Math.round(gp.noiseShift) : null
+  let noiseRatio = gp.noiseRatio !== null && gp.noiseRatio !== undefined ? Math.round(gp.noiseRatio) : 0
+
+  let isNoise = (type === "noise")
+  let isWave = (type === "wave")
+  let isPulse = (type === "pulse")
+
+  let f0 = 440 * Math.pow(2, (midi + bendSemis - 69) / 12)
+  // Soft sweep (±semis) or an NR10-ish approximation via sweepShift/sweepPeriod.
+  let sweepSemis = sweep
+  if (sweepShift > 0 && sweepPeriod > 0 && isPulse) {
+    sweepSemis = sweepDown ? -(sweepShift) : sweepShift
+  }
+  let f1 = f0 * Math.pow(2, sweepSemis / 12)
+
+  let v = vel / 127
+  if (v < 0) v = 0
+  if (v > 1) v = 1
+
+  // Hardware frequency floors.
+  if (isWave) {
+    if (f0 < 32.0) f0 = 32.0
+    if (f1 < 32.0) f1 = 32.0
+  } else if (isPulse) {
+    if (f0 < 64.0) f0 = 64.0
+    if (f1 < 64.0) f1 = 64.0
+  }
+
+  let src = ctx.createBufferSource()
+  src.loop = true
+
+  if (isWave) {
+    // A named `wave` table wins over the built-in shapes, same precedence as the GBA bake.
+    src.buffer = ch.waveTable ? getNamedWaveBuffer(ctx, ch.waveTable) : getDmgWaveBuffer(ctx, waveShape)
+  } else if (isNoise) {
+    src.buffer = getDmgLfsrBuffer(ctx, noiseMode === "short" ? 7 : 15)
+  } else {
+    src.buffer = getDmgPulseBuffer(ctx, duty)
+  }
+
+  let rate0 = 1.0
+  let rate1 = 1.0
+  if (isNoise) {
+    // GB noise lacks the NES's rigid 16-period table (it uses an expanding divider tree), so modern
+    // trackers treat it continuously. Scale to MIDI; noise_shift/ratio nudge the divider.
+    let shift = noiseShift !== null ? noiseShift : Math.floor(midi / 8)
+    let ratioMul = 1 + (noiseRatio / 14)
+    let pitchScale = Math.pow(2, -(shift - 7) / 4) / ratioMul
+    rate0 = (f0 * 100 * pitchScale) / ctx.sampleRate
+    rate1 = (f1 * 100 * pitchScale) / ctx.sampleRate
+  } else {
+    rate0 = (f0 * src.buffer.length) / ctx.sampleRate
+    rate1 = (f1 * src.buffer.length) / ctx.sampleRate
+  }
+
+  let safeDur = Math.max(durSec, 0.01)
+  // Hardware length counter approximation: (64-len)/256 s for pulse/noise.
+  if (len > 0 && !isWave) {
+    let hwDur = (64 - Math.min(len, 63)) / 256
+    if (hwDur < safeDur) safeDur = Math.max(hwDur, 0.01)
+  }
+
+  // The step envelope decays over 15 steps, max 7/64 s per step. Prefer an authored env_step; else
+  // map vol (0-15) onto a playable range.
+  let stepLen = envStep > 0 ? envStep : Math.max(1, Math.floor(vol / 2))
+  let decTime = (stepLen / 7) * 1.64
+  if (decTime < 0.05) decTime = 0.05
+
+  let totalTime = safeDur + 0.1
+  if (envMode === "adsr") {
+    let tD = attack + decay + 0.01
+    let tOff = Math.max(safeDur, tD)
+    totalTime = tOff + release + 0.1
+  } else if (envMode === "step") {
+    totalTime = Math.max(safeDur, decTime) + 0.1
+  }
+
+  let stopTime = t + totalTime
+  let disconnects = []
+
+  src.playbackRate.setValueAtTime(rate0, t)
+
+  if (pitchDrop !== 0) {
+    let rateDrop = rate0 * Math.pow(2, pitchDrop / 12)
+    src.playbackRate.setValueAtTime(rateDrop, t)
+    src.playbackRate.setTargetAtTime(rate0, t, Math.max(pitchDec, 0.001))
+  } else if (arpRate > 0 && arpSemis !== 0) {
+    let arpStep = 1.0 / arpRate
+    let steps = Math.ceil(totalTime / arpStep)
+    let ai = 0
+    while (ai < steps) {
+      let semi = (ai % 2 === 1) ? arpSemis : 0
+      src.playbackRate.setValueAtTime(rate0 * Math.pow(2, semi / 12), t + ai * arpStep)
+      ai = ai + 1
+    }
+  } else if (sweep !== 0 && isPulse) {
+    src.playbackRate.exponentialRampToValueAtTime(rate1, t + decTime)
+  }
+
+  if (vibRate > 0 && vibAmt > 0 && !isNoise) {
+    let lfo = ctx.createOscillator()
+    lfo.type = "sine"
+    lfo.frequency.value = vibRate
+    let lfoGain = ctx.createGain()
+    lfoGain.gain.value = rate0 * (vibAmt / 1200)
+    lfo.connect(lfoGain)
+    lfoGain.connect(src.playbackRate)
+    lfo.start(t)
+    lfo.stop(stopTime)
+    disconnects.push(lfo)
+    disconnects.push(lfoGain)
+  }
+
+  let maxAmp = (vol / 15.0) * v * 0.8
+  if (maxAmp < 0) maxAmp = 0
+  if (maxAmp > 0.8) maxAmp = 0.8
+
+  let finalGain = ctx.createGain()
+
+  if (envMode === "adsr") {
+    let a = attack > 0 ? attack : 0.005
+    let d = decay > 0 ? decay : 0.005
+    let s = (sustain / 15.0) * maxAmp
+    let r = release > 0 ? release : 0.005
+    let tA = t + a
+    let tD = tA + d
+    let tOff = Math.max(t + safeDur, tD)
+
+    finalGain.gain.setValueAtTime(0, t)
+    finalGain.gain.linearRampToValueAtTime(maxAmp, tA)
+    finalGain.gain.linearRampToValueAtTime(s, tD)
+    finalGain.gain.setValueAtTime(s, tOff)
+    finalGain.gain.linearRampToValueAtTime(0, tOff + r)
+  } else {
+    let tOff = t + safeDur
+    if (envMode === "step" && envUp) {
+      // Amplify envelope: start low, climb toward maxAmp over decTime.
+      finalGain.gain.setValueAtTime(0.001, t)
+      let tDec = t + 0.005 + decTime
+      if (tOff < tDec) {
+        finalGain.gain.linearRampToValueAtTime(maxAmp, tOff)
+      } else {
+        finalGain.gain.linearRampToValueAtTime(maxAmp, tDec)
+        finalGain.gain.setValueAtTime(maxAmp, tOff)
+      }
+      finalGain.gain.linearRampToValueAtTime(0, tOff + 0.01)
+    } else {
+      finalGain.gain.setValueAtTime(0, t)
+      finalGain.gain.linearRampToValueAtTime(maxAmp, t + 0.005)
+      if (envMode === "step") {
+        let tDec = t + 0.005 + decTime
+        if (tOff < tDec) {
+          finalGain.gain.linearRampToValueAtTime(0, tOff)
+        } else {
+          finalGain.gain.linearRampToValueAtTime(0, tDec)
+        }
+      } else {
+        finalGain.gain.setValueAtTime(maxAmp, tOff)
+        finalGain.gain.linearRampToValueAtTime(0, tOff + 0.01)
+      }
+    }
+  }
+
+  src.start(t)
+  src.stop(stopTime)
+  disconnects.push(src)
+
+  src.connect(finalGain)
+  finalGain.connect(bus.input)
+  disconnects.push(finalGain)
+
+  return { stopTime: stopTime, disconnects: disconnects }
+}

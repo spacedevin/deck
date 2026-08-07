@@ -1,0 +1,171 @@
+// The sequencer: which notes fire at a given 16th step.
+//
+// Ported from Deckard (tish-midi/src/audio/Playback.tish), dropping the session/clip selection,
+// deck gating and co-DJ cue paths.
+//
+// `stepTriggers` is pure — song + step in, triggers out, no audio and no mutable state. Deckard keeps
+// loop-cap progress in module-level maps (deckfile/LoopState.tish), which would mean two
+// <deck-player> elements on one page fighting over the same counters. Here the loop index is derived
+// from globalStep instead, so there is no state to share and no state to reset.
+
+import { sixteenthSeconds } from '../schedule/Engine.tish'
+import { channelAudible, playHitAt } from './Engine.tish'
+import { expandTriggerNotes } from './NoteExpand.tish'
+import { songSnapPitch } from '../song/Scale.tish'
+
+/**
+ * Deterministic 0..1 from (globalStep, busIndex, seed). The probability lock gates a step on this, so
+ * every replay and offline re-render rolls IDENTICALLY — the seed rides `song_seed`, and globalStep is
+ * cumulative so a 50% step varies bar-to-bar instead of being stuck on or off. Classic fract(sin·k)
+ * hash: no integer overflow (stays in double range), uniform enough for a per-step coin flip.
+ */
+export fn stepRand01(step, bus, seed) {
+  let x = Math.sin((step + 1) * 12.9898 + (bus + 1) * 78.233 + (seed + 1) * 37.719) * 43758.5453
+  return x - Math.floor(x)
+}
+
+/// `loops N` is a finite play cap: the channel plays N passes of its pattern, then falls silent.
+fn channelExhausted(ch, globalStep) {
+  if (ch.loopCap === null || ch.loopCap === undefined) {
+    return false
+  }
+  let patSpan = ch.patternBars * 16
+  if (patSpan < 1) {
+    patSpan = 16
+  }
+  return Math.floor(globalStep / patSpan) >= ch.loopCap
+}
+
+/**
+ * Which notes sound at `globalStep`. Returns [{busIndex, pitch, vel, durSec, beat, noteOffset, lyric}].
+ * No audio, no state — the single source of truth for "what sounds", shared by live playback and the
+ * offline render.
+ */
+export fn stepTriggers(song, globalStep) {
+  let out = []
+  let bi = 0
+  while (bi < song.channels.length) {
+    let ch = song.channels[bi]
+    if (!channelAudible(song, bi) || channelExhausted(ch, globalStep)) {
+      bi = bi + 1
+      continue
+    }
+
+    let nbars = ch.patternBars >= 1 ? ch.patternBars : 1
+    let patSpan = nbars * 16
+    let stepSec = sixteenthSeconds(song.bpm)
+
+    if (ch.pianoNotes && ch.pianoNotes.length > 0) {
+      // Melodic: notes are positioned by ABSOLUTE beat across all bars (bar-selected notes were
+      // expanded to absolute at apply time), so the span is the full pattern and bars 2+ are not
+      // skipped.
+      let stepInSpan = globalStep % patSpan
+      let pi = 0
+      while (pi < ch.pianoNotes.length) {
+        let n = ch.pianoNotes[pi]
+        let noteStep = Math.floor(n.startBeat * 4 + 0.0001)
+        let fires = noteStep >= 0 && noteStep < patSpan && stepInSpan === noteStep
+        // Per-note probability, seeded by the note's BEAT (bi*1000 + noteStep) so notes sharing a
+        // beat — a chord — roll together and reordering the lines can't change the outcome.
+        if (fires && n.prob < 0.999) {
+          if (stepRand01(globalStep, bi * 1000 + noteStep, song.songSeed) >= n.prob) {
+            fires = false
+          }
+        }
+        if (fires) {
+          let sec = (n.durBeats * 60) / song.bpm
+          // NUDGE shifts timing by a fraction of a STEP. RATCHET is R evenly-spaced sub-hits filling
+          // the note's own duration, each shortened to sec/R so they don't overlap.
+          let nudgeSec = n.nudge * stepSec
+          let ratchet = n.ratchet >= 1 ? n.ratchet : 1
+          let notes = expandTriggerNotes(ch, songSnapPitch(song, n.pitch), ratchet > 1 ? sec / ratchet : sec, song.bpm)
+          let rj = 0
+          while (rj < ratchet) {
+            let ratSec = ratchet > 1 ? (rj * sec / ratchet) : 0
+            let pk = 0
+            while (pk < notes.length) {
+              out.push({
+                busIndex: bi, pitch: notes[pk].pitch, vel: n.vel, durSec: notes[pk].dur,
+                beat: n.startBeat, noteOffset: notes[pk].offset + nudgeSec + ratSec, lyric: n.lyric
+              })
+              pk = pk + 1
+            }
+            rj = rj + 1
+          }
+        }
+        pi = pi + 1
+      }
+    } else if (ch.steps) {
+      // Steps: the rhythm loops over its OWN array length — a 16-step pattern repeats every bar,
+      // while a captured N*16 array plays distinct per-bar steps. The per-bar step pitch is chosen by
+      // the global bar index so multi-bar pitch progressions actually change across bars.
+      let rlen = ch.steps.length >= 1 ? ch.steps.length : 16
+      let stepInRhythm = globalStep % rlen
+      let st = ch.steps[stepInRhythm]
+      let fires = (st !== null && st !== undefined) && st.on
+      if (fires && st.prob < 0.999) {
+        if (stepRand01(globalStep, bi, song.songSeed) >= st.prob) {
+          fires = false
+        }
+      }
+      if (fires) {
+        let dur = stepSec * 0.85
+        let basePitch = ch.stepPitch
+        if (ch.stepPitchByBar) {
+          let barIdx = Math.floor(globalStep / 16) % nbars
+          if (barIdx >= 0 && barIdx < ch.stepPitchByBar.length) {
+            basePitch = ch.stepPitchByBar[barIdx]
+          }
+        }
+        let nudgeSec = st.nudge * stepSec
+        let ratchet = st.ratchet >= 1 ? st.ratchet : 1
+        let notes = expandTriggerNotes(ch, songSnapPitch(song, basePitch), ratchet > 1 ? dur / ratchet : dur, song.bpm)
+        let rj = 0
+        while (rj < ratchet) {
+          let ratSec = ratchet > 1 ? (rj * stepSec / ratchet) : 0
+          let pk = 0
+          while (pk < notes.length) {
+            out.push({
+              busIndex: bi, pitch: notes[pk].pitch, vel: st.vel, durSec: notes[pk].dur,
+              beat: globalStep * 0.25, noteOffset: notes[pk].offset + nudgeSec + ratSec, lyric: st.lyric
+            })
+            pk = pk + 1
+          }
+          rj = rj + 1
+        }
+      }
+    }
+    bi = bi + 1
+  }
+  return out
+}
+
+/**
+ * Sound one step: the thin impure wrapper over `stepTriggers`. Returns the voices it started so the
+ * caller can retire their nodes — see the cleanup note in Dispatch.tish.
+ */
+export fn playStep(ctx, song, graph, globalStep, tWhen) {
+  let trigs = stepTriggers(song, globalStep)
+  let voices = []
+  let i = 0
+  while (i < trigs.length) {
+    let tr = trigs[i]
+    let bus = graph.buses[tr.busIndex]
+    if (bus) {
+      let v = playHitAt(ctx, bus, tWhen + tr.noteOffset, tr.pitch, tr.vel, tr.durSec, song.channels[tr.busIndex], 0)
+      if (v) {
+        voices.push(v)
+      }
+    }
+    i = i + 1
+  }
+  return voices
+}
+
+/// Steps until every channel's `loops` cap is spent. `null` = at least one channel loops forever.
+export fn songStepCount(song) {
+  if (song.totalBeats === null || song.totalBeats === undefined) {
+    return null
+  }
+  return Math.ceil(song.totalBeats * 4)
+}
