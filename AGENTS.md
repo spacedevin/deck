@@ -97,5 +97,6 @@ Host apps (e.g. Deckard) may document UI, apply clamps, ownership, and their gen
 ## Tests
 
 - `test/coverage.mjs` — every public export + grammar constructs (incl. `fixtures/golden.deck`)
-- `test/smoke.tish` — import path via Tish
+- `test/smoke.test.tish` — language smoke via `tish test` (VM)
+- `test/smoke.tish` — JS-emit smoke via `npm run test:js-smoke` (`tish build --target js` + node)
 - `npm run test:coverage` — c8 gate: **100%** lines / functions / statements on `dist/deck.js`

@@ -1,0 +1,59 @@
+import { test } from "tish:test"
+import assert from "node:assert/strict"
+import {
+  parseProgram,
+  tokenize,
+  parseScaleRoot,
+  normalizeGeneratorId,
+  registerGeneratorIdAliases,
+  clearGeneratorIdAliases,
+  clearGenBlockDialects,
+  registerGenBlockDialect,
+  parseGenBlock,
+  generatorIdToDeck,
+  formatTplFloat,
+  isKeyword
+} from "../src/index.tish"
+
+fn matrixDialect(generatorId, lines) {
+  return { kind: "matrixFm", tplHeaderId: generatorId, version: 2, raw: lines, graph: { ops: {} } }
+}
+
+test("unregistered id passthrough", () => {
+  clearGeneratorIdAliases()
+  clearGenBlockDialects()
+  assert.strictEqual(normalizeGeneratorId("noise_burst"), "noise_burst")
+})
+
+test("parseGenBlock raw dialect-less", () => {
+  clearGeneratorIdAliases()
+  clearGenBlockDialects()
+  assert.strictEqual(parseGenBlock("matrix_fm", ["op 1"]).kind, "matrix_fm")
+})
+
+test("core highlight has scale", () => {
+  assert.strictEqual(isKeyword("scale"), true)
+})
+
+test("core highlight lacks patch dialect", () => {
+  assert.notStrictEqual(isKeyword("conn"), true)
+})
+
+test("registered dialect + emit", () => {
+  clearGeneratorIdAliases()
+  clearGenBlockDialects()
+  registerGeneratorIdAliases({ matrix_fm: "matrixFm" }, { matrixFm: "matrix_fm" })
+  registerGenBlockDialect(["matrixFm", "matrix_fm"], matrixDialect)
+  assert.strictEqual(parseGenBlock("matrix_fm", ["op 1"]).kind, "matrixFm")
+  assert.strictEqual(generatorIdToDeck("matrixFm"), "matrix_fm")
+})
+
+test("parseProgram / tokenize / scale / format", () => {
+  let src = "deck 1\nbpm 128\nscale C major\ntrack kick id c0 gen noise_burst\n  steps x . . .\n"
+  let parsed = parseProgram(src)
+  assert.ok(parsed !== null && typeof parsed === "object")
+  assert.strictEqual(parsed.bpm, 128)
+  assert.ok(tokenize("bpm 120").length >= 2)
+  assert.strictEqual(parseScaleRoot("C"), 0)
+  assert.strictEqual(typeof formatTplFloat(1.5), "string")
+})

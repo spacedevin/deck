@@ -13,7 +13,12 @@
     "access": "public"
   },
   "tish": {
-    "module": "./src/index.tish"
+    "module": "./src/index.tish",
+    "test": {
+      "root": [
+        "test"
+      ]
+    }
   },
   "main": "./dist/deck.js",
   "module": "./dist/deck.js",
@@ -48,7 +53,7 @@
   "scripts": {
     "build": "tish build src/index.tish -o dist/deck.js --target js && node scripts/append-exports.mjs",
     "tishversion": "tish -V",
-    "test": "npm run build && node test/coverage.mjs && node test/conformance.mjs && npm run test:conformance:tish && tish build --target js test/smoke.tish -o /tmp/spacedevin-deck-smoke.js && node /tmp/spacedevin-deck-smoke.js",
+    "test": "npm run build && node test/coverage.mjs && node test/conformance.mjs && npm run test:tish && npm run test:js-smoke",
     "test:conformance": "npm run build && node test/conformance.mjs",
     "conformance:update": "npm run build && node test/conformance.mjs --update",
     "test:coverage": "npm run build && c8 --check-coverage --lines 100 --functions 100 --statements 100 --include 'dist/deck.js' node test/coverage.mjs",
@@ -57,9 +62,11 @@
     "prepublishOnly": "npm run build",
     "build:rust": "node scripts/build-rust.mjs",
     "test:rust": "npm run build:rust && cd crate && cargo test",
-    "test:conformance:tish": "tish run test/conformance.tish",
+    "test:conformance:tish": "tish test test/conformance.test.tish",
     "site": "npm run build && npm run build -w @spacedevin/deck-player && node site/build.mjs",
-    "site:serve": "npm run site --silent && SITE_BASE=/ node site/build.mjs && npx --yes serve site/out"
+    "site:serve": "npm run site --silent && SITE_BASE=/ node site/build.mjs && npx --yes serve site/out",
+    "test:tish": "tish test",
+    "test:js-smoke": "tish build --target js test/smoke.tish -o /tmp/spacedevin-deck-smoke.js && node /tmp/spacedevin-deck-smoke.js"
   },
   "c8": {
     "reporter": [
@@ -88,7 +95,7 @@
     "@semantic-release/github": "12.0.6",
     "@semantic-release/npm": "13.1.5",
     "@semantic-release/release-notes-generator": "14.1.0",
-    "@tishlang/tish": "^3.2.2",
+    "@tishlang/tish": "^3.7.1",
     "c8": "^10.1.3",
     "highlight.js": "^11.11.1",
     "marked": "^15.0.12",
