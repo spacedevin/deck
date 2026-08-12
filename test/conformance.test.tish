@@ -1,0 +1,69 @@
+// Conformance corpus runner — the TISH / language-semantics target.
+//
+// Exercises ../src/index.tish on the Tish VM via `tish test` (not compiled JS).
+// JS emit parity remains `node test/conformance.mjs`; Rust remains `cargo test`.
+//
+//   tish test test/conformance.test.tish
+import { test } from "tish:test"
+import assert from "node:assert/strict"
+import { readDir, readFile } from "tish:fs"
+import { parseProgram, parseTrackBody } from "../src/index.tish"
+
+/// Same observable parse the other runners snapshot: program AST + track/clip bodies.
+fn snapshotOf(src) {
+  let program = parseProgram(src)
+  let trackBodies = []
+  let ti = 0
+  while (ti < program.tracks.length) {
+    let t = program.tracks[ti]
+    let parsed = parseTrackBody(t.body)
+    trackBodies.push({ id: t.id, rows: parsed.rows, errors: parsed.errors })
+    ti = ti + 1
+  }
+  let clipBodies = []
+  let ci = 0
+  while (ci < program.clipBlocks.length) {
+    let c = program.clipBlocks[ci]
+    let parsed = parseTrackBody(c.body)
+    clipBodies.push({ clipId: c.clipId, rows: parsed.rows, errors: parsed.errors })
+    ci = ci + 1
+  }
+  return { program: program, trackBodies: trackBodies, clipBodies: clipBodies }
+}
+
+test("corpus present", () => {
+  let entries = readDir("conformance")
+  let cases = []
+  let ni = 0
+  while (ni < entries.length) {
+    let n = String(entries[ni])
+    if (n.length > 5 && n.substring(n.length - 5) === ".deck") {
+      cases.push(n.substring(0, n.length - 5))
+    }
+    ni = ni + 1
+  }
+  assert.ok(cases.length >= 10, "expected at least 10 .deck corpus cases")
+})
+
+test("conformance corpus matches expected snapshots", () => {
+  let entries = readDir("conformance")
+  let cases = []
+  let ni = 0
+  while (ni < entries.length) {
+    let n = String(entries[ni])
+    if (n.length > 5 && n.substring(n.length - 5) === ".deck") {
+      cases.push(n.substring(0, n.length - 5))
+    }
+    ni = ni + 1
+  }
+  cases.sort()
+  let ki = 0
+  while (ki < cases.length) {
+    let name = cases[ki]
+    // Semantic compare: re-stringify expected so compact vs pretty JSON does not false-fail.
+    let actual = JSON.stringify(snapshotOf(readFile("conformance/" + name + ".deck")))
+    let expected = JSON.stringify(JSON.parse(readFile("conformance/" + name + ".expected.json")))
+    assert.strictEqual(actual, expected, name)
+    ki = ki + 1
+  }
+})

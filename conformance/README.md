@@ -5,7 +5,7 @@ must produce the **same** parse:
 
 | Implementation | Runner |
 |----------------|--------|
-| **Tish** (`src/index.tish` — the source itself) | `npm run test:conformance:tish` |
+| **Tish** (`src/index.tish` — the source itself, VM via `tish test`) | `npm run test:conformance:tish` / `npm run test:tish` |
 | **JS** (`dist/deck.js`) | `npm run test:conformance` |
 | **Rust** (`deckfile` crate, emitted from the same source) | `cargo test` in the crate |
 | A restricted host (tish-gba) | its own test, against the `gba` profile |
