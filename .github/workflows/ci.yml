@@ -1,5 +1,8 @@
 # Run tests and on main push create prerelease with npm package.
 # When you "Set as latest release" (uncheck prerelease), the npm-release workflow publishes to npm.
+#
+# Version bumps use tishlang/sem (@tishlang/sem) — Conventional Commits drive semver
+# (feat/fix/perf/BREAKING release; chore/docs/ci do not). Config: .semrc.json
 
 name: CI (test, prerelease)
 
@@ -104,105 +107,114 @@ jobs:
           cargo publish --dry-run --allow-dirty
           rm -rf target/package
 
+  # ── Would this land a release? Runs on PRs so a bad commit type is caught before merge. ───────
   release_check:
-    name: Release check (semantic-release dry-run)
+    name: Release check (sem dry-run)
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: "22" }
+
+      - name: Dry-run sem
+        id: sem
+        uses: tishlang/sem@v1
         with:
-          fetch-depth: 0
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-
-      - name: Install dependencies (incl. semantic-release)
-        run: npm ci
-
-      - name: Set repository URL
-        run: |
-          node -e "
-          const fs = require('fs');
-          const p = require('./package.json');
-          p.repository = { type: 'git', url: process.env.REPO_URL };
-          fs.writeFileSync('./package.json', JSON.stringify(p, null, 2));
-          "
-        env:
-          REPO_URL: ${{ format('{0}/{1}.git', github.server_url, github.repository) }}
-
-      - name: Require incremental release
+          dry_run: true
+          config: |
+            branches: [main]
+            plugins:
+              - "@sem/commit-analyzer"
+              - "@sem/release-notes-generator"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Report bump
         run: |
-          npx semantic-release --dry-run --extends ./.releaserc.json 2>&1 | tee release-check.log
-          if grep -q "There are no relevant changes, so no new version is released." release-check.log; then
-            echo "No incremental release would be triggered. Push commits that trigger a release (feat/fix/perf/BREAKING CHANGE per conventional commits)."
-            exit 1
+          if [ "${{ steps.sem.outputs.new_release_published }}" = "true" ]; then
+            echo "::notice::Would release ${{ steps.sem.outputs.new_release_version }} from these commits."
+          elif [ "${{ steps.sem.outputs.skipped }}" = "true" ]; then
+            echo "::notice::Soft-skipped (${{ steps.sem.outputs.skip_reason }})."
+          else
+            echo "::notice::No version bump. Conventional Commits drive semver — feat/fix/perf/BREAKING release, chore/docs/ci do not."
           fi
-          echo "Release would be triggered - check passed."
 
   release:
-    name: Release (prerelease branch + GitHub API)
+    name: Prerelease
     needs: [test, rust_crate, release_check]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      # @sem/github opens a failure issue when a release throws. Without this it cannot, and the
+      # real error is buried under a 403 from the issues API.
+      issues: write
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: "22"
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: "22" }
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Set repository URL
+      # A tag is a commit-shaped object and actions/checkout configures no identity, so sem dies with
+      # "Failed to create tag: Committer identity unknown" without this. chuggie-engine shipped zero
+      # releases for months on exactly that.
+      - name: Configure git identity for the release tag
         run: |
-          node -e "
-          const fs = require('fs');
-          const p = require('./package.json');
-          p.repository = { type: 'git', url: process.env.REPO_URL };
-          fs.writeFileSync('./package.json', JSON.stringify(p, null, 2));
-          "
-        env:
-          REPO_URL: ${{ format('{0}/{1}.git', github.server_url, github.repository) }}
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-      - name: Get next version (semantic-release dry-run)
-        id: next_version
+      - name: Next version via sem (dry-run)
+        id: sem
+        uses: tishlang/sem@v1
+        with:
+          dry_run: true
+          config: |
+            branches: [main]
+            plugins:
+              - "@sem/commit-analyzer"
+              - "@sem/release-notes-generator"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Skip when no bump
+        id: gate
         run: |
-          npx semantic-release --dry-run --extends ./.releaserc.json 2>&1 | tee release.log
-          VERSION=$(sed -n 's/.*Published release \([0-9.]*\).*/\1/p' release.log | head -1)
-          if [ -z "$VERSION" ]; then
-            echo "Could not determine next version from semantic-release output"
-            exit 1
+          if [ "${{ steps.sem.outputs.new_release_published }}" != "true" ]; then
+            echo "::notice::No version bump — skipping prerelease."
+            echo "continue=false" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "Next version: $VERSION"
+          echo "continue=true" >> "$GITHUB_OUTPUT"
+          echo "version=${{ steps.sem.outputs.new_release_version }}" >> "$GITHUB_OUTPUT"
+          echo "Next version: ${{ steps.sem.outputs.new_release_version }}"
 
-      - name: Set package version
+      # crates.io has no delete, only yank, and npm unpublish is a 72-hour window — so an artifact
+      # published under the wrong licence is effectively permanent. This repo has already shipped two
+      # versions under the wrong one and had to yank both. Refuse to build an artifact unless the
+      # LICENSE the packages and the crate point at is actually present.
+      - name: Refuse to package without a licence
+        if: steps.gate.outputs.continue == 'true'
         run: |
-          node -e "
-          const fs = require('fs');
-          const p = require('./package.json');
-          p.version = process.env.VERSION;
-          fs.writeFileSync('./package.json', JSON.stringify(p, null, 2));
-          "
-        env:
-          VERSION: ${{ steps.next_version.outputs.version }}
+          for f in LICENSE packages/player/LICENSE; do
+            if [ ! -f "$f" ]; then
+              echo "::error::Missing $f, but package.json declares a licence. Add the file, or correct the declaration, before anything is published."
+              exit 1
+            fi
+          done
 
-      - name: Create npm package tarball (@spacedevin/deck)
+      - name: Stamp the version and pack @spacedevin/deck
+        if: steps.gate.outputs.continue == 'true'
         run: |
+          node -e '
+            const fs = require("fs"), p = "./package.json";
+            const j = JSON.parse(fs.readFileSync(p, "utf8"));
+            j.version = process.argv[1];
+            fs.writeFileSync(p, JSON.stringify(j, null, 2) + "\n");
+          ' "${{ steps.gate.outputs.version }}"
           npm pack
           mv spacedevin-deck-*.tgz spacedevin-deck-npm-package.tgz
 
@@ -214,111 +226,43 @@ jobs:
       # dependency only matters to a consumer compiling from src/index.tish via the `tish` export
       # condition — and for them a compatible minor is fine. An exact pin would just force npm to
       # install a second copy alongside a consumer's own @spacedevin/deck.
-      - name: Set player version and pin its dependency
+      - name: Stamp the version and pack @spacedevin/deck-player
+        if: steps.gate.outputs.continue == 'true'
         run: |
-          node -e "
-          const fs = require('fs');
-          const p = './packages/player/package.json';
-          const j = JSON.parse(fs.readFileSync(p));
-          j.version = process.env.VERSION;
-          j.dependencies['@spacedevin/deck'] = '^' + process.env.VERSION;
-          fs.writeFileSync(p, JSON.stringify(j, null, 2) + '\n');
-          "
-        env:
-          VERSION: ${{ steps.next_version.outputs.version }}
-
-      - name: Create npm package tarball (@spacedevin/deck-player)
-        run: |
+          node -e '
+            const fs = require("fs"), p = "./packages/player/package.json";
+            const j = JSON.parse(fs.readFileSync(p, "utf8"));
+            j.version = process.argv[1];
+            j.dependencies["@spacedevin/deck"] = "^" + process.argv[1];
+            fs.writeFileSync(p, JSON.stringify(j, null, 2) + "\n");
+          ' "${{ steps.gate.outputs.version }}"
           npm pack -w @spacedevin/deck-player
           mv spacedevin-deck-player-*.tgz spacedevin-deck-player-npm-package.tgz
 
-      - name: Create or update release branch and push
+      # Promoting this prerelease to a full release is what fires npm-release.yml and
+      # crates-release.yml. The two-step exists so a release is never published by the same run that
+      # decided to make one — there is a human between "CI is green" and "this is on npm forever".
+      - name: Create the prerelease via @sem/github
+        if: steps.gate.outputs.continue == 'true'
+        uses: tishlang/sem@v1
+        with:
+          force: ${{ steps.gate.outputs.version }}
+          config: |
+            branches: [main]
+            plugins:
+              - "@sem/commit-analyzer"
+              - "@sem/release-notes-generator"
+              - - "@sem/npm"
+                - npmPublish: false
+              - - "@sem/github"
+                - prerelease: true
+                  successComment: false
+                  assets:
+                    - path: spacedevin-deck-npm-package.tgz
+                      name: spacedevin-deck-npm-package.tgz
+                      label: npm package (@spacedevin/deck)
+                    - path: spacedevin-deck-player-npm-package.tgz
+                      name: spacedevin-deck-player-npm-package.tgz
+                      label: npm package (@spacedevin/deck-player)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          BRANCH="release/v${{ steps.next_version.outputs.version }}"
-          git checkout -B "$BRANCH"
-          git push origin "$BRANCH" --force
-
-      - name: Generate release notes from commits
-        id: changelog
-        run: |
-          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
-          if [ -n "$LAST_TAG" ]; then
-            CHANGELOG=$(git log "$LAST_TAG..HEAD" --pretty=format:"- %s (%h)" --no-merges 2>/dev/null || echo "")
-          else
-            CHANGELOG=$(git log -30 --pretty=format:"- %s (%h)" --no-merges 2>/dev/null || echo "")
-          fi
-          [ -z "$CHANGELOG" ] && CHANGELOG="- No commits to list"
-          {
-            echo "## Changes"
-            echo ""
-            echo "$CHANGELOG"
-            echo ""
-          } > release-body.md
-
-      - name: Create or update GitHub prerelease via API
-        id: create_release
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VERSION: ${{ steps.next_version.outputs.version }}
-        run: |
-          TAG="v${VERSION}"
-          BRANCH="release/v${VERSION}"
-          BODY=$(cat release-body.md)
-          RESP=$(curl -s -w "\n%{http_code}" -X POST \
-            -H "Authorization: Bearer $GITHUB_TOKEN" \
-            -H "Accept: application/vnd.github+json" \
-            -H "X-GitHub-Api-Version: 2022-11-28" \
-            "https://api.github.com/repos/${{ github.repository }}/releases" \
-            -d "{\"tag_name\":\"$TAG\",\"target_commitish\":\"$BRANCH\",\"name\":\"$TAG\",\"body\":$(echo "$BODY" | jq -Rs .),\"prerelease\":true}")
-          HTTP_CODE=$(echo "$RESP" | tail -n1)
-          BODY_RESP=$(echo "$RESP" | sed '$d')
-          if [ "$HTTP_CODE" = "201" ]; then
-            echo "Created prerelease $TAG"
-            RELEASE_ID=$(echo "$BODY_RESP" | jq -r .id)
-          elif [ "$HTTP_CODE" = "422" ]; then
-            RELEASE_ID=$(curl -s -H "Authorization: Bearer $GITHUB_TOKEN" \
-              "https://api.github.com/repos/${{ github.repository }}/releases/tags/$TAG" | jq -r .id)
-            if [ "$RELEASE_ID" != "null" ] && [ -n "$RELEASE_ID" ]; then
-              curl -s -X PATCH \
-                -H "Authorization: Bearer $GITHUB_TOKEN" \
-                -H "Accept: application/vnd.github+json" \
-                -H "X-GitHub-Api-Version: 2022-11-28" \
-                "https://api.github.com/repos/${{ github.repository }}/releases/$RELEASE_ID" \
-                -d "{\"target_commitish\":\"$BRANCH\",\"body\":$(echo "$BODY" | jq -Rs .),\"prerelease\":true}"
-              echo "Updated existing prerelease $TAG"
-            else
-              echo "Release creation failed (422) and could not find release by tag"
-              exit 1
-            fi
-          else
-            echo "Unexpected response: $HTTP_CODE"
-            echo "$BODY_RESP"
-            exit 1
-          fi
-          echo "release_id=$RELEASE_ID" >> $GITHUB_OUTPUT
-
-      - name: Upload npm package to prerelease
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          RELEASE_ID="${{ steps.create_release.outputs.release_id }}"
-          REPO="${{ github.repository }}"
-          UPLOAD_URL="https://uploads.github.com/repos/$REPO/releases/$RELEASE_ID/assets"
-          curl -s -X POST \
-            -H "Authorization: Bearer $GITHUB_TOKEN" \
-            -H "Accept: application/vnd.github+json" \
-            -H "X-GitHub-Api-Version: 2022-11-28" \
-            -H "Content-Type: application/octet-stream" \
-            --data-binary @spacedevin-deck-npm-package.tgz \
-            "${UPLOAD_URL}?name=spacedevin-deck-npm-package.tgz&label=npm%20package%20(@spacedevin/deck)"
-          curl -s -X POST \
-            -H "Authorization: Bearer $GITHUB_TOKEN" \
-            -H "Accept: application/vnd.github+json" \
-            -H "X-GitHub-Api-Version: 2022-11-28" \
-            -H "Content-Type: application/octet-stream" \
-            --data-binary @spacedevin-deck-player-npm-package.tgz \
-            "${UPLOAD_URL}?name=spacedevin-deck-player-npm-package.tgz&label=npm%20package%20(@spacedevin/deck-player)"

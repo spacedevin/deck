@@ -127,7 +127,12 @@ npm also exports `./grammar`, `./ast`, `./examples`, `./extension` and `./host` 
 
 ## Release
 
-Matches [lattish](https://github.com/tishlang/lattish): semantic-release prerelease → promote → OIDC npm publish.
+Version bumps come from [sem](https://github.com/tishlang/sem) — Conventional Commits drive semver
+(`feat`/`fix`/`perf`/`BREAKING` release; `chore`/`docs`/`ci` do not). Config: [.semrc.json](.semrc.json).
+
+A green `main` cuts a **prerelease** carrying both npm tarballs. Promoting it to a full release fires
+`npm-release.yml` and `crates-release.yml`, so nothing is published by the same run that decided to
+publish it.
 
 ## Test / coverage
 
