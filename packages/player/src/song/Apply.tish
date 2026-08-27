@@ -333,50 +333,34 @@ fn expandNoteRow(row, declaredBars, errors) {
 }
 
 /**
- * `wave <name> <32 hex nibbles>` → 32 samples in -1..1.
+ * A parsed `wave` statement's 4-bit levels → 32 samples in -1..1.
  *
- * Each nibble is a 4-bit wave RAM level, so 0 → -1, 7.5 → 0, 15 → +1. This is the inverse of the
- * bake's `wave_nibbles` (deckpack.rs), which writes `(phase * 15).round()` for a saw — so a table
- * decoded here and a table baked to a ROM describe the same waveform.
+ * The parser hands over levels 0..15, whichever spelling wrote them, so 0 → -1, 7.5 → 0, 15 → +1.
+ * That is the inverse of the bake's `wave_nibbles` (deckpack.rs), which writes `(phase * 15).round()`
+ * for a saw — so a table decoded here and a table baked to a ROM describe the same waveform.
  */
-fn decodeWaveTable(hex) {
-  let s = String(hex)
-  if (s.length !== 32) {
-    return null
-  }
+fn levelsToSamples(levels) {
   let out = []
   let i = 0
-  while (i < 32) {
-    let n = parseInt(s.charAt(i), 16)
-    if (n !== n) {
-      return null
-    }
-    out.push(n / 7.5 - 1)
+  while (i < levels.length) {
+    out.push(levels[i] / 7.5 - 1)
     i = i + 1
   }
   return out
 }
 
+/// `wave` is core grammar: the parser validates both spellings and resolves each to 32 levels, so
+/// this only has to scale them into the range the audio graph wants. Malformed lines are already in
+/// `ast.errors` before we get here.
 fn collectWaveTables(ast, errors) {
   let tables = {}
-  let entries = ast.hostStatements ? ast.hostStatements.wave : null
+  let entries = ast.waves
   if (!entries) {
     return tables
   }
   let i = 0
   while (i < entries.length) {
-    let toks = entries[i].value
-    if (toks && toks.length >= 3) {
-      let name = String(toks[1])
-      let table = decodeWaveTable(toks[2])
-      if (table) {
-        tables[name] = table
-      } else {
-        errors.push({ line: entries[i].lineNo, msg: "wave `" + name + "` needs 32 hex digits" })
-      }
-    } else {
-      errors.push({ line: entries[i].lineNo, msg: "wave needs a name and 32 hex digits" })
-    }
+    tables[String(entries[i].name)] = levelsToSamples(entries[i].levels)
     i = i + 1
   }
   return tables

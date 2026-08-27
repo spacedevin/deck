@@ -1,5 +1,6 @@
 import { normalizeGeneratorId } from './RegistryMap.tish'
 import { parseScaleRoot } from '../ScaleRoot.tish'
+import { harmonicTable, decodeWaveHex } from './Wavetable.tish'
 
 let topLevelStatements = {}
 
@@ -78,6 +79,7 @@ export fn parseProgram(source) {
   let errors = []
   let directives = []
   let hostStatements = {}
+  let waves = []
   let tplVersion = 0
   let bpm = null
   let tracks = []
@@ -275,6 +277,55 @@ export fn parseProgram(source) {
       if (toks.length >= 2) {
         songSeed = Math.floor(Number(toks[1]))
       }
+      continue
+    }
+    // Named PSG wavetable: `wave <name> <32 hex digits>`, or `wave <name> harmonics <a1> <a2> …`.
+    // Both forms resolve to the same 32 levels here, the way `steps euclid` resolves to a step grid,
+    // so a host reads `levels` and never has to know which spelling produced them. `harmonics` is
+    // kept alongside so an emitter can write the source form back rather than flattening it to hex.
+    if (head === "wave") {
+      if (toks.length < 3) {
+        errors.push({ line: i, msg: "wave: expected `wave <name> <32 hex digits>` or `wave <name> harmonics <a1> …`" })
+        continue
+      }
+      let waveName = toks[1]
+      if (toks[2] === "harmonics") {
+        let amps = []
+        let badToken = null
+        let ai = 3
+        while (ai < toks.length) {
+          let amp = Number(toks[ai])
+          if (amp !== amp) {
+            if (badToken === null) {
+              badToken = toks[ai]
+            }
+          } else {
+            amps.push(amp)
+          }
+          ai = ai + 1
+        }
+        if (badToken !== null) {
+          errors.push({ line: i, msg: "wave `" + waveName + "`: harmonics takes numbers, got `" + badToken + "`" })
+          continue
+        }
+        if (amps.length === 0) {
+          errors.push({ line: i, msg: "wave `" + waveName + "`: harmonics needs one or more numbers" })
+          continue
+        }
+        let built = harmonicTable(amps)
+        if (built === null) {
+          errors.push({ line: i, msg: "wave `" + waveName + "`: every harmonic is zero" })
+          continue
+        }
+        waves.push({ lineNo: i, name: waveName, mode: "harmonics", harmonics: amps, hex: null, levels: built })
+        continue
+      }
+      let decoded = decodeWaveHex(toks[2])
+      if (decoded === null) {
+        errors.push({ line: i, msg: "wave `" + waveName + "`: needs 32 hex digits" })
+        continue
+      }
+      waves.push({ lineNo: i, name: waveName, mode: "hex", harmonics: null, hex: toks[2], levels: decoded })
       continue
     }
     // Crossfader position: `xfade <x> <y>` — both 0..1 (X = deck A↔B, Y = top↔bottom corner).
@@ -577,6 +628,7 @@ export fn parseProgram(source) {
     scaleMode: scaleMode,
     deckMix: deckMix,
     directives: directives,
+    waves: waves,
     hostStatements: hostStatements,
     errors: errors
   }

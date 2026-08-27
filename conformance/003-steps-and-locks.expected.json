@@ -211,6 +211,7 @@
     "scaleMode": null,
     "deckMix": null,
     "directives": [],
+    "waves": [],
     "hostStatements": {},
     "errors": []
   },

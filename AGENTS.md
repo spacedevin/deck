@@ -24,7 +24,7 @@ audio-free; everything that list excludes lives in `packages/player/`, which has
   clamping, no defaults, no range checks. Those are host policy and the hosts genuinely differ.
 - Format helpers (`formatTplBeat`, `formatTplFloat`)
 - Scale root/mode vocabulary
-- Bar selectors + Euclidean step fill
+- Bar selectors + Euclidean step fill + wavetables (`wave`, including the `harmonics` fill)
 - Empty registries: generator id aliases, param key aliases, macros, gen_block dialects, body-line
   dialects, host top-level statements
 - Highlight classification (`classifyLine` / keyword sets)

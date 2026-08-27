@@ -162,7 +162,7 @@ track T id t gen gameBoyDmg * 4
   assert.equal(spans.channels[0].pianoNotes.length, 2)
 })
 
-test('the GBA host extensions: named wave tables and layer gating', () => {
+test('core wave tables and the layer host extension', () => {
   const song = parseSong(`deck 1
 bpm 120
 wave round 8acdefffffedba988765421000001235
@@ -194,6 +194,27 @@ track Extra id extra gen gameBoyDmg
   const bad = parseSong('deck 1\nwave short abc\n')
   assert.equal(bad.errors.length, 1)
   assert.match(bad.errors[0].msg, /32 hex digits/)
+})
+
+test('a harmonics wave resolves to the same samples as its hex literal', () => {
+  // `wave` is core grammar, so the player never sees the spelling — the parser hands it 32 levels
+  // either way. This is the player-side half of the language's equality guarantee.
+  const song = parseSong(`deck 1
+bpm 120
+wave lit 8beffecbbbbaa9888776554444310014
+wave gen harmonics 1 0.5 0.33 0.2
+track Bass id bass gen gameBoyDmg
+  gen type wave wave_shape gen
+  note 36 0 1 v 100
+`)
+  assert.deepEqual(song.errors, [])
+  assert.deepEqual(song.waveTables.gen, song.waveTables.lit)
+  assert.equal(song.waveTables.gen.length, 32)
+  assert.ok(song.channels[0].waveTable, 'a harmonics table binds like any other')
+
+  const bad = parseSong('deck 1\nwave a harmonics 0 0\n')
+  assert.equal(bad.errors.length, 1)
+  assert.match(bad.errors[0].msg, /every harmonic is zero/)
 })
 
 test('a malformed gen line is reported instead of merging junk params', () => {

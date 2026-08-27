@@ -2,7 +2,7 @@
 
 Line-oriented, streamable patch text (`.deck`). This is the **language** reference for `@spacedevin/deck`.
 
-**Package responsibilities:** tokenize, `parseProgram` → AST, format helpers, bar selectors, Euclidean step fill, scale root/mode vocab, highlight classify, empty registries (generator id / param key / macro / gen_block dialect).
+**Package responsibilities:** tokenize, `parseProgram` → AST, format helpers, bar selectors, Euclidean step fill, wavetables, scale root/mode vocab, highlight classify, empty registries (generator id / param key / macro / gen_block dialect).
 
 **Host responsibilities:** map AST → project IR (apply/emit), audio engines, ownership/skills, co-DJ, UI. Generators, builtin macro catalogs, and `patch` / `matrix_fm` dialect parsers are **host-registered**.
 
@@ -41,6 +41,7 @@ These are recognized by `parseProgram`.
 | Scale lock | `scale <root> <mode>` | `root` = note (`C`, `F#`, `Bb`) or pitch-class `0..11`; modes below. `scale off` / `none` / `chromatic` clears (AST root `-1`) |
 | Launch quant | `launch_quant <n>` | Scene/clip launch grid (bars), `n ≥ 1` |
 | Song seed | `song_seed <int>` | Seeds deterministic randomness (e.g. step probability) |
+| Wavetable | `wave <name> <32 hex>` / `wave <name> harmonics <a1> …` | Named PSG wavetable; see below |
 | Crossfader | `xfade <x> [<y>]` | Both `0..1`; if `y` omitted, `y = 0.5` |
 | Main deck | `main_deck live\|local` | Which booth feeds the main out |
 | Booth mix | `deck_mix <A\|B\|C\|D> [hi n] [mid n] [lo n] [flt n] [vol n]` | Any subset of keys |
@@ -63,6 +64,30 @@ Accepted mode tokens (aliases in parentheses):
 `major` (`ionian`), `minor` (`aeolian`), `dorian`, `phrygian`, `lydian`, `mixolydian`, `locrian`, `harmonic_minor`, `melodic_minor`, `pentatonic_major` (`penta_major`, `majpenta`), `pentatonic_minor` (`penta_minor`, `minpenta`), `blues`.
 
 Package helpers: `parseScaleRoot`, `scaleRootNames`, `scaleModeNames`, `scaleIntervals`.
+
+### Wavetables
+
+```
+wave <name> <32 hex digits>
+wave <name> harmonics <a1> [a2 a3 …]
+```
+
+A named PSG wavetable: **32 four-bit levels**, one cycle, in Game Boy wave RAM order. `0` is the bottom
+of the wave, `f` the top, `8` about the rest line. Select one with `gen type wave wave_shape <name>`;
+a name matching no `wave` line falls back to the host's built-in shapes.
+
+The `harmonics` form gives amplitudes instead of samples — `a1` is the fundamental, `a2` the octave
+above it, `a3` the twelfth — and the parser sums them into the same 32 levels, normalized to fill the
+range, so only the ratios matter. Like `steps euclid`, it is **expanded at parse time**: a host reads
+`levels` and never has to know which spelling produced it. These two lines are the same sound:
+
+```
+wave organ 8beffecbbbbaa9888776554444310014
+wave organ harmonics 1 0.5 0.33 0.2
+```
+
+Errors: a hex form that is not exactly 32 hex digits, a `harmonics` form with no numbers, a
+non-numeric amplitude, or amplitudes that are all zero (silence has no shape to normalize).
 
 ### Track header
 

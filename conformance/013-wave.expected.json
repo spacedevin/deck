@@ -1,0 +1,339 @@
+{
+  "program": {
+    "tplVersion": 1,
+    "bpm": 110,
+    "tracks": [
+      {
+        "name": "Bass",
+        "id": "bass",
+        "generatorId": "gameBoyDmg",
+        "rawGenId": "gameBoyDmg",
+        "genParams": {},
+        "loopBars": null,
+        "body": [
+          {
+            "lineNo": 13,
+            "tokens": [
+              "gen",
+              "type",
+              "wave",
+              "wave_shape",
+              "organ_harm",
+              "vol",
+              "15"
+            ],
+            "raw": "gen type wave wave_shape organ_harm vol 15"
+          },
+          {
+            "lineNo": 14,
+            "tokens": [
+              "note",
+              "36",
+              "0",
+              "2",
+              "v",
+              "110"
+            ],
+            "raw": "note 36 0 2 v 110"
+          }
+        ],
+        "genBlocks": []
+      },
+      {
+        "name": "Lead",
+        "id": "lead",
+        "generatorId": "gameBoyDmg",
+        "rawGenId": "gameBoyDmg",
+        "genParams": {},
+        "loopBars": null,
+        "body": [
+          {
+            "lineNo": 17,
+            "tokens": [
+              "gen",
+              "type",
+              "wave",
+              "wave_shape",
+              "pure",
+              "vol",
+              "12"
+            ],
+            "raw": "gen type wave wave_shape pure vol 12"
+          },
+          {
+            "lineNo": 18,
+            "tokens": [
+              "note",
+              "60",
+              "0",
+              "1",
+              "v",
+              "100"
+            ],
+            "raw": "note 60 0 1 v 100"
+          }
+        ],
+        "genBlocks": []
+      }
+    ],
+    "removeTrackIds": [],
+    "macros": {},
+    "autos": [],
+    "masterMixTokens": null,
+    "actorMixRows": [],
+    "clipBlocks": [],
+    "sessionSceneCount": null,
+    "sessionSlots": [],
+    "song": null,
+    "follow": null,
+    "launchQuant": null,
+    "songSeed": null,
+    "xfade": null,
+    "mainDeck": null,
+    "swing": null,
+    "scaleRoot": null,
+    "scaleMode": null,
+    "deckMix": null,
+    "directives": [],
+    "waves": [
+      {
+        "lineNo": 7,
+        "name": "organ_hex",
+        "mode": "hex",
+        "harmonics": null,
+        "hex": "8beffecbbbbaa9888776554444310014",
+        "levels": [
+          8,
+          11,
+          14,
+          15,
+          15,
+          14,
+          12,
+          11,
+          11,
+          11,
+          11,
+          10,
+          10,
+          9,
+          8,
+          8,
+          8,
+          7,
+          7,
+          6,
+          5,
+          5,
+          4,
+          4,
+          4,
+          4,
+          3,
+          1,
+          0,
+          0,
+          1,
+          4
+        ]
+      },
+      {
+        "lineNo": 8,
+        "name": "organ_harm",
+        "mode": "harmonics",
+        "harmonics": [
+          1,
+          0.5,
+          0.33,
+          0.2
+        ],
+        "hex": null,
+        "levels": [
+          8,
+          11,
+          14,
+          15,
+          15,
+          14,
+          12,
+          11,
+          11,
+          11,
+          11,
+          10,
+          10,
+          9,
+          8,
+          8,
+          8,
+          7,
+          7,
+          6,
+          5,
+          5,
+          4,
+          4,
+          4,
+          4,
+          3,
+          1,
+          0,
+          0,
+          1,
+          4
+        ]
+      },
+      {
+        "lineNo": 9,
+        "name": "pure",
+        "mode": "harmonics",
+        "harmonics": [
+          1
+        ],
+        "hex": null,
+        "levels": [
+          8,
+          9,
+          10,
+          12,
+          13,
+          14,
+          14,
+          15,
+          15,
+          15,
+          14,
+          14,
+          13,
+          12,
+          10,
+          9,
+          8,
+          6,
+          5,
+          3,
+          2,
+          1,
+          1,
+          0,
+          0,
+          0,
+          1,
+          1,
+          2,
+          3,
+          5,
+          6
+        ]
+      },
+      {
+        "lineNo": 10,
+        "name": "odd",
+        "mode": "harmonics",
+        "harmonics": [
+          1,
+          0,
+          0.4,
+          0,
+          0.2
+        ],
+        "hex": null,
+        "levels": [
+          8,
+          12,
+          15,
+          15,
+          14,
+          13,
+          13,
+          13,
+          14,
+          13,
+          13,
+          13,
+          14,
+          15,
+          15,
+          12,
+          8,
+          3,
+          0,
+          0,
+          1,
+          2,
+          2,
+          2,
+          1,
+          2,
+          2,
+          2,
+          1,
+          0,
+          0,
+          3
+        ]
+      }
+    ],
+    "hostStatements": {},
+    "errors": []
+  },
+  "trackBodies": [
+    {
+      "id": "bass",
+      "rows": [
+        {
+          "kind": "gen",
+          "params": {
+            "type": "wave",
+            "waveShape": "organ_harm",
+            "vol": 15
+          },
+          "lineNo": 13
+        },
+        {
+          "kind": "note",
+          "midi": 36,
+          "startBeat": 0,
+          "durBeats": 2,
+          "vel": 110,
+          "prob": null,
+          "ratchet": null,
+          "nudge": null,
+          "bar": null,
+          "lyric": null,
+          "lineNo": 14
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "lead",
+      "rows": [
+        {
+          "kind": "gen",
+          "params": {
+            "type": "wave",
+            "waveShape": "pure",
+            "vol": 12
+          },
+          "lineNo": 17
+        },
+        {
+          "kind": "note",
+          "midi": 60,
+          "startBeat": 0,
+          "durBeats": 1,
+          "vel": 100,
+          "prob": null,
+          "ratchet": null,
+          "nudge": null,
+          "bar": null,
+          "lyric": null,
+          "lineNo": 18
+        }
+      ],
+      "errors": []
+    }
+  ],
+  "clipBodies": []
+}

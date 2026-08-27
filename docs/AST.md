@@ -105,6 +105,8 @@ Two things the parser does for you:
 
 - **Euclid is already expanded.** `steps euclid 5 16` arrives as the same `on: boolean[]` grid a
   literal line produces, with `hits` and `len` alongside.
+- **Wavetables are already resolved.** `wave x harmonics 1 0.5` arrives as the same `levels`
+  (32 numbers, 0..15) a hex literal produces, with `mode` and the source `harmonics` / `hex` alongside.
 - **Param keys are camelCased and aliased.** `wave_shape` → `waveShape`, `reverb` → `reverbSend`,
   `type` → `filterType` on `fx`. Extend with `registerParamKeyAliases`.
 

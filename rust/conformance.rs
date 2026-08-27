@@ -195,3 +195,26 @@ fn registries_persist_between_calls() {
         "clear*() reassigns module state and the parser must see it"
     );
 }
+
+/// `wave` is core grammar, and the two spellings must describe one sound: a `harmonics` line and the
+/// hex literal it resolves to have to produce identical levels, here as well as in JS.
+#[test]
+fn wave_harmonics_matches_hex_literal() {
+    let p = deckfile::facade::parse(
+        "deck 1\nwave a 8beffecbbbbaa9888776554444310014\nwave b harmonics 1 0.5 0.33 0.2\n",
+    );
+    assert!(p.errors.is_empty(), "unexpected errors: {:?}", p.errors);
+    assert_eq!(p.waves.len(), 2);
+
+    assert_eq!(p.waves[0].mode, "hex");
+    assert_eq!(p.waves[0].hex.as_deref(), Some("8beffecbbbbaa9888776554444310014"));
+    assert_eq!(p.waves[0].harmonics, None);
+
+    assert_eq!(p.waves[1].mode, "harmonics");
+    assert_eq!(p.waves[1].harmonics, Some(vec![1.0, 0.5, 0.33, 0.2]));
+    assert_eq!(p.waves[1].hex, None);
+
+    assert_eq!(p.waves[0].levels.len(), 32);
+    assert_eq!(p.waves[0].levels, p.waves[1].levels);
+    assert!(p.waves[0].levels.iter().all(|n| (0..=15).contains(n)));
+}
