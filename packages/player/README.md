@@ -141,4 +141,4 @@ See [AGENTS.md](AGENTS.md). Grammar changes belong upstream in `@spacedevin/deck
 
 ## License
 
-Pay It Forward (PIF) — see [LICENSE](../../LICENSE).
+MIT — see [LICENSE](LICENSE).

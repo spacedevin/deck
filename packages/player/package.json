@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "type": "module",
   "description": "Web Audio player for the .deck language — chip-tune synths, transport, and a <deck-player> element",
-  "license": "PIF",
+  "license": "MIT",
   "author": "spacedevin",
   "repository": {
     "type": "git",
@@ -40,7 +40,8 @@
     "element/",
     "types/",
     "README.md",
-    "AGENTS.md"
+    "AGENTS.md",
+    "LICENSE"
   ],
   "scripts": {
     "build": "tish build src/index.tish -o dist/deck-player.js --target js",

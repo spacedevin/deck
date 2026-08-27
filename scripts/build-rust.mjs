@@ -117,7 +117,7 @@ Hosts extend the language through registries rather than forking it:
 
 ## License
 
-Pay It Forward (PIF) — see LICENSE. Same license as [tish][tish].
+MIT — see LICENSE.
 
 [npm]: https://www.npmjs.com/package/@spacedevin/deck
 [repo]: https://github.com/spacedevin/deck
@@ -209,13 +209,13 @@ const CRATE_VERSION = process.env.DECKFILE_VERSION ?? pkg.version
 const manifestPath = path.join(out, "Cargo.toml")
 let manifest = fs.readFileSync(manifestPath, "utf8")
 const deps = `[dependencies]\ntishlang_runtime = "${RUNTIME_VERSION}"\n`
-// `license-file`, not `license`: PIF is not an SPDX identifier, so an SPDX field would either be
-// rejected or misreport the terms. Same approach tish itself uses.
+// MIT is a real SPDX identifier, so the crate declares it as `license` rather than pointing at a
+// `license-file`. That is what crates.io indexes and what downstream license tooling reads.
 manifest = `[package]
 name = "${CRATE_NAME}"
 version = "${CRATE_VERSION}"
 edition = "2021"
-license-file = "LICENSE"
+license = "MIT"
 readme = "README.md"
 description = "${pkg.description}"
 repository = "${pkg.repository.url}"
