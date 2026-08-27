@@ -1,0 +1,21 @@
+{
+  "branches": [
+    "main"
+  ],
+  "plugins": [
+    "@sem/commit-analyzer",
+    "@sem/release-notes-generator",
+    [
+      "@sem/npm",
+      {
+        "npmPublish": false
+      }
+    ],
+    [
+      "@sem/github",
+      {
+        "prerelease": true
+      }
+    ]
+  ]
+}
