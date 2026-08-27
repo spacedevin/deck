@@ -87,9 +87,22 @@ jobs:
         run: cargo test
 
       # A crate that cannot be packaged cannot be released; catch that on the PR, not at publish.
+      #
+      # The dry run leaves an extracted copy of the crate at `target/package/deckfile-<version>/`.
+      # rust-cache's post step prunes `target/` before saving it, walks into that copy, and dies on
+      # the trybuild layout it expects but this crate does not have:
+      #
+      #   ENOENT: opendir '…/crate/target/package/deckfile-0.1.0/tests/trybuild'
+      #
+      # Four `##[error]` annotations on an otherwise green run. It only shows up on a cache MISS,
+      # since rust-cache skips the prune entirely on a hit — which is why it appears sporadically,
+      # whenever a change to the emitted crate moves the cache key. Nothing should be caching the
+      # output of a dry-run publish, so drop it before the post step can find it.
       - name: Packaging check
         working-directory: crate
-        run: cargo publish --dry-run --allow-dirty
+        run: |
+          cargo publish --dry-run --allow-dirty
+          rm -rf target/package
 
   release_check:
     name: Release check (semantic-release dry-run)
