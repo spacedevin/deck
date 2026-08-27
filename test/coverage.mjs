@@ -44,7 +44,10 @@ import {
   registerBodyLineDialect,
   clearBodyLineDialects,
   registerTopLevelStatement,
-  clearTopLevelStatements
+  clearTopLevelStatements,
+  harmonicTable,
+  decodeWaveHex,
+  encodeWaveHex
 } from "../dist/deck.js"
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..")
@@ -518,16 +521,60 @@ check("body dialect bad heads ignored", body("42").kind === "unknown")
 clearBodyLineDialects()
 check("body dialect cleared", body("layer 2").kind === "unknown")
 
-registerTopLevelStatement("wave", (head, toks) => ({ name: toks[1], hex: toks[2] }))
-let hs = parseProgram("deck 1\nwave saw abcdef\nwave sq 012345\n")
-check("host stmt collected", hs.hostStatements.wave.length === 2)
-check("host stmt value", hs.hostStatements.wave[0].value.name === "saw")
-check("host stmt lineNo", hs.hostStatements.wave[0].lineNo === 2)
+// `wave` used to be the example here, because it used to be a host statement. It is core now, so
+// this exercises the mechanism with a head the language genuinely does not own.
+registerTopLevelStatement("cue", (head, toks) => ({ name: toks[1], at: toks[2] }))
+let hs = parseProgram("deck 1\ncue drop 32\ncue break 64\n")
+check("host stmt collected", hs.hostStatements.cue.length === 2)
+check("host stmt value", hs.hostStatements.cue[0].value.name === "drop")
+check("host stmt lineNo", hs.hostStatements.cue[0].lineNo === 2)
 check("host stmt no error", hs.errors.length === 0)
 registerTopLevelStatement("nope", null)
 check("host stmt null fn ignored", parseProgram("nope 1\n").errors.length === 1)
 clearTopLevelStatements()
-check("host stmt cleared", parseProgram("wave saw abcdef\n").errors.length === 1)
+check("host stmt cleared", parseProgram("cue drop 32\n").errors.length === 1)
+
+// A host registering `wave` must not shadow the core statement — core is matched first.
+registerTopLevelStatement("wave", () => ({ hijacked: true }))
+let shadow = parseProgram("deck 1\nwave organ harmonics 1 0.5\n")
+check("core wave wins over host", shadow.waves.length === 1 && !shadow.hostStatements.wave)
+clearTopLevelStatements()
+
+// wave: both spellings, and the equality that makes `harmonics` sugar rather than a second sound.
+let wv = parseProgram(
+  "deck 1\nwave a 8beffecbbbbaa9888776554444310014\nwave b harmonics 1 0.5 0.33 0.2\n"
+)
+check("wave no error", wv.errors.length === 0)
+check("wave count", wv.waves.length === 2)
+check("wave hex mode", wv.waves[0].mode === "hex")
+check("wave hex retained", wv.waves[0].hex === "8beffecbbbbaa9888776554444310014")
+check("wave hex 32 levels", wv.waves[0].levels.length === 32)
+check("wave harmonics mode", wv.waves[1].mode === "harmonics")
+check("wave harmonics retained", wv.waves[1].harmonics.join(",") === "1,0.5,0.33,0.2")
+check("wave lineNo", wv.waves[0].lineNo === 2)
+check(
+  "wave harmonics equals hex literal",
+  wv.waves[0].levels.join(",") === wv.waves[1].levels.join(",")
+)
+check("wave short hex errors", parseProgram("deck 1\nwave a abc\n").errors.length === 1)
+check("wave bad hex errors", parseProgram("deck 1\nwave a " + "z".repeat(32) + "\n").errors.length === 1)
+check("wave missing args errors", parseProgram("deck 1\nwave a\n").errors.length === 1)
+check("wave bare errors", parseProgram("deck 1\nwave\n").errors.length === 1)
+check("wave empty harmonics errors", parseProgram("deck 1\nwave a harmonics\n").errors.length === 1)
+check("wave zero harmonics errors", parseProgram("deck 1\nwave a harmonics 0 0\n").errors.length === 1)
+check("wave nan harmonics errors", parseProgram("deck 1\nwave a harmonics 1 x\n").errors.length === 1)
+
+check("harmonicTable 32 levels", harmonicTable([1]).length === 32)
+check("harmonicTable in range", harmonicTable([1, 0.5]).every((n) => n >= 0 && n <= 15))
+check("harmonicTable ratios only", encodeWaveHex(harmonicTable([1, 0.5])) === encodeWaveHex(harmonicTable([2, 1])))
+check("harmonicTable zero is null", harmonicTable([0]) === null)
+check("harmonicTable empty is null", harmonicTable([]) === null)
+check("harmonicTable null is null", harmonicTable(null) === null)
+check("harmonicTable infinite is null", harmonicTable([1 / 0]) === null)
+check("harmonicTable nan is null", harmonicTable([0 / 0]) === null)
+check("decodeWaveHex round trip", encodeWaveHex(decodeWaveHex("8beffecbbbbaa9888776554444310014")) === "8beffecbbbbaa9888776554444310014")
+check("decodeWaveHex short is null", decodeWaveHex("abc") === null)
+check("decodeWaveHex bad digit is null", decodeWaveHex("g".repeat(32)) === null)
 
 if (failed > 0) {
   console.log(failed + " FAILED")

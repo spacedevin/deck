@@ -14,7 +14,6 @@ import {
   registerGeneratorIdAliases,
   registerParamKeyAliases,
   registerBodyLineDialect,
-  registerTopLevelStatement,
   registerHighlightKeywords,
   paramKeyToCamel
 } from '@spacedevin/deck'
@@ -32,11 +31,6 @@ fn parseLegacyGenLine(head, toks) {
     i = i + 2
   }
   return { kind: "gen", params: params }
-}
-
-/// `wave <name> <32 hex nibbles>` — a named PSG wavetable. Kept as raw tokens; Apply validates.
-fn parseWaveStatement(head, toks) {
-  return toks
 }
 
 /// `layer|intensity|min_intensity <0..3>` — stem gating. A track sounds only at or above its level.
@@ -115,15 +109,12 @@ export fn bootDeckRegistries() {
   // re-scanned in Apply.
   registerBodyLineDialect(["noise", "fm", "osc"], parseLegacyGenLine)
 
-  // The GBA host extensions. `conformance/profiles.json` declares them as the `gba` profile's
-  // extensions (topLevel: ["wave"], body: ["layer","intensity","min_intensity"]), and 10 of the 62
-  // songs in the tish-gba corpus use them — without these, a sixth of the real corpus reports
-  // "unexpected top-level: wave" and its wave channels play a generic saw instead of their own table.
-  registerTopLevelStatement("wave", parseWaveStatement)
+  // Stem gating stays a host extension — `conformance/profiles.json` declares it as the `gba`
+  // profile's body extension. `wave` used to be registered here too, but it is core grammar now:
+  // the parser resolves both spellings onto `ast.waves`, so registering it would be ignored.
   registerBodyLineDialect(["layer", "intensity", "min_intensity"], parseLayerLine)
 
   registerHighlightKeywords({
-    top: ["wave"],
     body: ["noise", "fm", "osc", "layer", "intensity", "min_intensity"]
   })
 }

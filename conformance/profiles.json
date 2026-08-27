@@ -22,12 +22,11 @@
         "004-notes": "uses `transpose`, applied host-side"
       },
       "mustAccept": [
-        "012-gba-subset"
+        "012-gba-subset",
+        "013-wave"
       ],
       "extensions": {
-        "topLevel": [
-          "wave"
-        ],
+        "topLevel": [],
         "body": [
           "layer",
           "intensity",

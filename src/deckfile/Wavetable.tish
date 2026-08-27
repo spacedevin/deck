@@ -1,0 +1,91 @@
+// PSG wavetables: 32 four-bit samples, the Game Boy's wave RAM laid out as one cycle.
+//
+// `wave <name> <32 hex digits>` writes the samples directly. `wave <name> harmonics <a1> <a2> …`
+// says how loud each harmonic is and lets this module land on the samples — the same relationship
+// `steps euclid <hits> <len>` has to a literal step grid, and expanded the same way, at parse time,
+// so a host only ever sees resolved samples.
+//
+// Level 0 is the bottom of the wave, 15 the top, 7.5 the rest line. A host maps that to its own
+// range (the Web Audio player uses `n / 7.5 - 1`); the GBA bake packs two levels per byte and copies
+// them to WAVE_RAM untouched, which is why these are levels and not floats.
+
+/// Additive synthesis: harmonic amplitudes -> 32 levels in 0..15.
+///
+/// Amplitude 1 is the fundamental, 2 the octave above it, 3 the twelfth. The result is normalized to
+/// fill the 4-bit range, so only the ratios between amplitudes matter. Returns null when every
+/// harmonic is zero, which would otherwise be a divide by a zero peak.
+export fn harmonicTable(harmonics) {
+  if (!harmonics || harmonics.length === 0) {
+    return null
+  }
+
+  let raw = []
+  let i = 0
+  while (i < 32) {
+    let phase = i / 32
+    let v = 0
+    let h = 0
+    while (h < harmonics.length) {
+      v = v + harmonics[h] * Math.sin(2 * Math.PI * (h + 1) * phase)
+      h = h + 1
+    }
+    raw.push(v)
+    i = i + 1
+  }
+
+  let peak = 0
+  let k = 0
+  while (k < raw.length) {
+    let a = Math.abs(raw[k])
+    if (a > peak) {
+      peak = a
+    }
+    k = k + 1
+  }
+  // Silence has no shape to normalize, and a non-finite peak (an infinite amplitude, or a NaN that
+  // made every comparison false and left the peak at zero) would put NaN in the table. Both are the
+  // caller passing something that is not a waveform, so both are null rather than a bad table.
+  if (!(peak > 0) || (peak - peak) !== 0) {
+    return null
+  }
+
+  // Dividing by the peak puts every sample in -1..1, so scaling by 7.5 about the 7.5 rest line lands
+  // in 0..15 by construction — there is nothing left to clamp.
+  let out = []
+  let j = 0
+  while (j < raw.length) {
+    out.push(Math.round((raw[j] / peak) * 7.5 + 7.5))
+    j = j + 1
+  }
+  return out
+}
+
+/// `<32 hex digits>` -> 32 levels in 0..15. Null if the length is wrong or a digit is not hex.
+export fn decodeWaveHex(hex) {
+  let s = String(hex)
+  if (s.length !== 32) {
+    return null
+  }
+  let out = []
+  let i = 0
+  while (i < 32) {
+    let n = parseInt(s.charAt(i), 16)
+    if (n !== n) {
+      return null
+    }
+    out.push(n)
+    i = i + 1
+  }
+  return out
+}
+
+/// 32 levels -> the 32 hex digits a `wave` line carries. The inverse of `decodeWaveHex`.
+export fn encodeWaveHex(levels) {
+  let s = ""
+  let i = 0
+  while (i < levels.length) {
+    s = s + levels[i].toString(16)
+    i = i + 1
+  }
+  return s
+}

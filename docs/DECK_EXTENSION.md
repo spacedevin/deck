@@ -2,19 +2,22 @@
 
 Three registries let a host add vocabulary **without forking the grammar**. That matters: the one
 implementation that had no such hook (tish-gba, which needed a top-level `wave` statement and a
-`layer` body key) ended up a separate grammar rather than a subset of this one.
+`layer` body key) ended up a separate grammar rather than a subset of this one. `wave` has since been
+adopted into the language itself — every host wanted it, which is the signal that a statement is not
+an extension.
 
 | Extension point | Adds | API |
 |-----------------|------|-----|
-| Top-level statement | `wave <name> <hex>` | `registerTopLevelStatement(head, fn)` → `ast.hostStatements[head][]` |
+| Top-level statement | `cue <name> <beat>` | `registerTopLevelStatement(head, fn)` → `ast.hostStatements[head][]` |
 | Track / clip body head | `layer 2` | `registerBodyLineDialect(heads, fn)` → the row `parseBodyLine` returns |
 | `gen_block` dialect | `patch`, `matrix_fm` | `registerGenBlockDialect(ids, fn)` |
 
 ```tish
 import { registerTopLevelStatement, registerBodyLineDialect } from "@spacedevin/deck"
 
-// tish-gba: `wave <name> <32 hex nibbles>`
-registerTopLevelStatement("wave", (head, toks) => ({ name: toks[1], hex: toks[2] }))
+// A cue point the host jumps to. Core statements are matched first, so a host can add vocabulary
+// but never shadow the language — registering `wave` here would simply be ignored.
+registerTopLevelStatement("cue", (head, toks) => ({ name: toks[1], beat: Number(toks[2]) }))
 
 // tish-gba: `layer|intensity|min_intensity <0..3>` — one head set, one parser
 registerBodyLineDialect(["layer", "intensity", "min_intensity"], (head, toks) => {

@@ -90,6 +90,23 @@ pub struct Directive {
     pub tokens: Vec<String>,
 }
 
+/// A named PSG wavetable. `levels` is already resolved — a `harmonics` line arrives as the same 32
+/// levels a hex literal produces, with `harmonics` alongside so an emitter can write the source
+/// spelling back instead of flattening it.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Wave {
+    pub line: i64,
+    pub name: String,
+    /// `"hex"` or `"harmonics"`.
+    pub mode: String,
+    /// The 32 hex digits as written, when `mode == "hex"`.
+    pub hex: Option<String>,
+    /// The amplitudes as written, fundamental first, when `mode == "harmonics"`.
+    pub harmonics: Option<Vec<f64>>,
+    /// 32 four-bit levels, 0..15. Game Boy wave RAM order.
+    pub levels: Vec<i64>,
+}
+
 /// Whether a `note` / `step_pitch` applies to a bar. `None` = every bar.
 #[derive(Debug, Clone, PartialEq)]
 pub struct BarSelector {
@@ -252,6 +269,7 @@ pub struct DeckProgram {
     pub tracks: Vec<Track>,
     pub clips: Vec<Clip>,
     pub directives: Vec<Directive>,
+    pub waves: Vec<Wave>,
     pub errors: Vec<ParseError>,
     /// Values returned by `registerTopLevelStatement` handlers, keyed by head.
     pub host_statements: Value,
@@ -456,6 +474,21 @@ pub fn parse(src: &str) -> DeckProgram {
         })
         .collect();
 
+    let waves = items(&field(&raw, "waves"))
+        .iter()
+        .map(|w| Wave {
+            line: int_field(w, "lineNo").unwrap_or(0),
+            name: str_field(w, "name").unwrap_or_default(),
+            mode: str_field(w, "mode").unwrap_or_default(),
+            hex: str_field(w, "hex"),
+            harmonics: match field(w, "harmonics") {
+                Value::Null => None,
+                h => Some(items(&h).iter().filter_map(as_f64).collect()),
+            },
+            levels: items(&field(w, "levels")).iter().filter_map(as_f64).map(|n| n as i64).collect(),
+        })
+        .collect();
+
     DeckProgram {
         version: int_field(&raw, "tplVersion").unwrap_or(0),
         bpm: num_field(&raw, "bpm"),
@@ -465,6 +498,7 @@ pub fn parse(src: &str) -> DeckProgram {
         tracks,
         clips,
         directives,
+        waves,
         errors: errors_from(&field(&raw, "errors")),
         host_statements: field(&raw, "hostStatements"),
         raw,

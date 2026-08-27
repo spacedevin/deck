@@ -110,8 +110,9 @@ That means real hardware behaviour, not an impression of it:
   15-step volume envelope
 - **`gbaDirectSound`** — a 32-sample table (so high notes alias like the real software mixer), an
   8-bit DAC as a 256-step staircase, and the ~16 kHz mixing roll-off
-- **`wave <name> <32 hex nibbles>`** — named wave RAM tables, and `layer` stem gating via
-  `setIntensity()`
+- **`wave <name> <32 hex digits>`** / **`wave <name> harmonics <a1> …`** — named wave RAM tables,
+  written as samples or as harmonic amplitudes; the language resolves both to the same 32 levels
+- **`layer`** — stem gating via `setIntensity()`
 
 Everything else — `matrixFm`, `patch`, `nes2a03`, `c64sid`, and the rest — falls back to a plain
 oscillator so a song still plays, and says so in `song.substitutions`. `ttsVocal` / `meSpeakVocal`

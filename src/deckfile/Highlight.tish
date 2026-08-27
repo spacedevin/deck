@@ -23,6 +23,7 @@ TOP_KEYS["session_slot"] = true
 TOP_KEYS["clip"] = true
 TOP_KEYS["master_mix"] = true
 TOP_KEYS["actor_mix"] = true
+TOP_KEYS["wave"] = true
 TOP_KEYS["end"] = true
 
 // Track / clip body heads that are core language (Apply interprets; gen_block lines stay opaque here).

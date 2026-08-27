@@ -46,6 +46,7 @@
     "scaleMode": "minor",
     "deckMix": null,
     "directives": [],
+    "waves": [],
     "hostStatements": {},
     "errors": []
   },
