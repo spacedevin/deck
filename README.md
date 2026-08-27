@@ -146,4 +146,4 @@ Branch % is lower (~60%) because the Tish→JS emit adds many `?? null` / typeof
 
 ## License
 
-Pay It Forward (PIF) — see [LICENSE](LICENSE). Same license as [tish](https://github.com/tishlang/tish).
+MIT — see [LICENSE](LICENSE).
