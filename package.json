@@ -53,7 +53,7 @@
   "scripts": {
     "build": "tish build src/index.tish -o dist/deck.js --target js && node scripts/append-exports.mjs",
     "tishversion": "tish -V",
-    "test": "npm run build && node test/coverage.mjs && node test/conformance.mjs && npm run test:tish && npm run test:js-smoke",
+    "test": "npm run build && node test/coverage.mjs && node test/conformance.mjs && npm run test:examples && npm run test:tish && npm run test:js-smoke",
     "test:conformance": "npm run build && node test/conformance.mjs",
     "conformance:update": "npm run build && node test/conformance.mjs --update",
     "test:coverage": "npm run build && c8 --check-coverage --lines 100 --functions 100 --statements 100 --include 'dist/deck.js' node test/coverage.mjs",
@@ -66,7 +66,8 @@
     "site": "npm run build && npm run build -w @spacedevin/deck-player && node site/build.mjs",
     "site:serve": "npm run site --silent && SITE_BASE=/ node site/build.mjs && npx --yes serve site/out",
     "test:tish": "tish test",
-    "test:js-smoke": "tish build --target js test/smoke.tish -o /tmp/spacedevin-deck-smoke.js && node /tmp/spacedevin-deck-smoke.js"
+    "test:js-smoke": "tish build --target js test/smoke.tish -o /tmp/spacedevin-deck-smoke.js && node /tmp/spacedevin-deck-smoke.js",
+    "test:examples": "npm run build -w @spacedevin/deck-player && node test/examples.mjs docs/EXAMPLES.md"
   },
   "c8": {
     "reporter": [

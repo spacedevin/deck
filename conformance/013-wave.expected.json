@@ -12,7 +12,7 @@
         "loopBars": null,
         "body": [
           {
-            "lineNo": 13,
+            "lineNo": 16,
             "tokens": [
               "gen",
               "type",
@@ -25,7 +25,7 @@
             "raw": "gen type wave wave_shape organ_harm vol 15"
           },
           {
-            "lineNo": 14,
+            "lineNo": 17,
             "tokens": [
               "note",
               "36",
@@ -48,20 +48,20 @@
         "loopBars": null,
         "body": [
           {
-            "lineNo": 17,
+            "lineNo": 20,
             "tokens": [
               "gen",
               "type",
-              "wave",
-              "wave_shape",
-              "pure",
+              "pulse",
+              "duty",
+              "25",
               "vol",
               "12"
             ],
-            "raw": "gen type wave wave_shape pure vol 12"
+            "raw": "gen type pulse duty 25 vol 12"
           },
           {
-            "lineNo": 18,
+            "lineNo": 21,
             "tokens": [
               "note",
               "60",
@@ -97,7 +97,7 @@
     "directives": [],
     "waves": [
       {
-        "lineNo": 7,
+        "lineNo": 10,
         "name": "organ_hex",
         "mode": "hex",
         "harmonics": null,
@@ -138,7 +138,7 @@
         ]
       },
       {
-        "lineNo": 8,
+        "lineNo": 11,
         "name": "organ_harm",
         "mode": "harmonics",
         "harmonics": [
@@ -184,7 +184,7 @@
         ]
       },
       {
-        "lineNo": 9,
+        "lineNo": 12,
         "name": "pure",
         "mode": "harmonics",
         "harmonics": [
@@ -227,7 +227,7 @@
         ]
       },
       {
-        "lineNo": 10,
+        "lineNo": 13,
         "name": "odd",
         "mode": "harmonics",
         "harmonics": [
@@ -288,7 +288,7 @@
             "waveShape": "organ_harm",
             "vol": 15
           },
-          "lineNo": 13
+          "lineNo": 16
         },
         {
           "kind": "note",
@@ -301,7 +301,7 @@
           "nudge": null,
           "bar": null,
           "lyric": null,
-          "lineNo": 14
+          "lineNo": 17
         }
       ],
       "errors": []
@@ -312,11 +312,11 @@
         {
           "kind": "gen",
           "params": {
-            "type": "wave",
-            "waveShape": "pure",
+            "type": "pulse",
+            "duty": 25,
             "vol": 12
           },
-          "lineNo": 17
+          "lineNo": 20
         },
         {
           "kind": "note",
@@ -329,7 +329,7 @@
           "nudge": null,
           "bar": null,
           "lyric": null,
-          "lineNo": 18
+          "lineNo": 21
         }
       ],
       "errors": []
