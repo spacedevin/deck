@@ -1,0 +1,33 @@
+# The two spellings that make `wave` exhaustive. `harmonics` can only reach tables whose partials
+# are all in sine phase, so on its own it leaves hand-tuned curves with no readable form. `levels`
+# closes that: it is the wave RAM in decimal, so every table hex can hold, it can hold too.
+#
+# `pure_lev`, `pure_hex` and `pure_harm` MUST resolve to identical `levels` — the same equality
+# 013-wave pins for `harmonics`, now pinned across all three notations. `shape` is the third form:
+# the classic waveform names, resolved here rather than guessed at by each host, which is why
+# `sq_shape` and `sq_duty` must also agree, and `round` — `shape sine` — must land on the same table
+# as `pure_harm`, since one harmonic IS a sine.
+#
+# One wave track only: the LR35902 has a single wave channel, and the GBA profile lists this case as
+# mustAccept, so it has to stay inside that subset.
+deck 1
+bpm 100
+
+wave pure_harm harmonics 1
+wave pure_hex  89acdeefffeedca98653211000112356
+wave pure_lev  levels 8 9 10 12 13 14 14 15 15 15 14 14 13 12 10 9 8 6 5 3 2 1 1 0 0 0 1 1 2 3 5 6
+
+wave sq_shape shape square
+wave sq_duty  shape pulse duty 50
+wave thin     shape pulse duty 12.5
+wave ramp     shape saw
+wave peak     shape triangle
+wave round    shape sine
+
+track Wave id wv gen gameBoyDmg
+  gen type wave wave_shape pure_lev vol 15
+  note 48 0 2 v 110
+
+track Lead id lead gen gameBoyDmg
+  gen type pulse duty 50 vol 12
+  note 60 0 1 v 100

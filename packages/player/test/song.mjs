@@ -217,6 +217,38 @@ track Bass id bass gen gameBoyDmg
   assert.match(bad.errors[0].msg, /every harmonic is zero/)
 })
 
+test('levels and shape resolve to the same samples as the tables they stand in for', () => {
+  // The point of `levels` is that no table is stuck as hex: `harmonics` only reaches sine-phase
+  // shapes, so a hand-tuned curve needs a decimal spelling of the wave RAM to stay readable. It has
+  // to transcribe the hex exactly, and `shape sine` has to be a single harmonic and nothing else.
+  const song = parseSong(`deck 1
+bpm 120
+wave lit 89acdeefffeedca98653211000112356
+wave dec levels 8 9 10 12 13 14 14 15 15 15 14 14 13 12 10 9 8 6 5 3 2 1 1 0 0 0 1 1 2 3 5 6
+wave sin shape sine
+wave one harmonics 1
+wave sq shape square
+wave duty shape pulse duty 50
+track Bass id bass gen gameBoyDmg
+  gen type wave wave_shape dec
+  note 36 0 1 v 100
+`)
+  assert.deepEqual(song.errors, [])
+  assert.deepEqual(song.waveTables.dec, song.waveTables.lit)
+  assert.deepEqual(song.waveTables.sin, song.waveTables.one)
+  assert.deepEqual(song.waveTables.sq, song.waveTables.duty)
+  assert.equal(song.waveTables.dec.length, 32)
+  assert.ok(song.channels[0].waveTable, 'a levels table binds like any other')
+
+  const short = parseSong('deck 1\nwave a levels 1 2 3\n')
+  assert.equal(short.errors.length, 1)
+  assert.match(short.errors[0].msg, /exactly 32 samples/)
+
+  const unknown = parseSong('deck 1\nwave a shape wobble\n')
+  assert.equal(unknown.errors.length, 1)
+  assert.match(unknown.errors[0].msg, /unknown shape/)
+})
+
 test('a malformed gen line is reported instead of merging junk params', () => {
   // `gen adsr attack 0 decay 0.1` pairs positionally, so `0` becomes a key. Silently merging that
   // leaves the envelope at its defaults and the author with no idea why.

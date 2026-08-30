@@ -47,9 +47,16 @@ BODY_KEYS["fx"] = true
 BODY_KEYS["deck"] = true
 BODY_KEYS["gen"] = true
 
+// Sub-keywords that pick a spelling inside a statement rather than starting one. The `wave` forms
+// live here: without them a `wave` line highlights its keyword and then goes flat, which reads as if
+// `harmonics` were a name rather than a choice of notation.
 let INLINE_KEYS = {}
 INLINE_KEYS["bar"] = true
 INLINE_KEYS["v"] = true
+INLINE_KEYS["harmonics"] = true
+INLINE_KEYS["levels"] = true
+INLINE_KEYS["shape"] = true
+INLINE_KEYS["duty"] = true
 
 fn addHighlightKeys(map, arr) {
   if (!arr) {

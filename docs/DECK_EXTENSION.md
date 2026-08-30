@@ -4,7 +4,9 @@ Three registries let a host add vocabulary **without forking the grammar**. That
 implementation that had no such hook (tish-gba, which needed a top-level `wave` statement and a
 `layer` body key) ended up a separate grammar rather than a subset of this one. `wave` has since been
 adopted into the language itself — every host wanted it, which is the signal that a statement is not
-an extension.
+an extension. Its `shape` names arrived the same way: they lived as a per-host fallback for
+`wave_shape`, drifted apart (unknown names resolved to a sine in one host and a saw in another), and
+are now resolved in the parser so there is one answer.
 
 | Extension point | Adds | API |
 |-----------------|------|-----|

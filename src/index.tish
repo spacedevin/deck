@@ -29,7 +29,7 @@ export {
 } from "./deckfile/RegistryMap.tish"
 export { parseBarSelector, barSelectorMatches } from "./deckfile/BarSelector.tish"
 export { euclideanPattern } from "./deckfile/Euclidean.tish"
-export { harmonicTable, decodeWaveHex, encodeWaveHex } from "./deckfile/Wavetable.tish"
+export { harmonicTable, levelsTable, shapeTable, decodeWaveHex, encodeWaveHex } from "./deckfile/Wavetable.tish"
 export {
   parseGenBlock,
   registerGenBlockDialect,
