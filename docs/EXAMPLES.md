@@ -171,8 +171,11 @@ track Kick id kick gen gbaDirectSound
 ## Wavetables
 
 `wave` names a 32-sample, 4-bit table — one cycle of a waveform, in Game Boy wave RAM order — and a
-`type wave` track plays it by name. You can write the samples as hex digits, or give the harmonic
-amplitudes and let the language sum them.
+`type wave` track plays it by name. There are four ways to say one: `harmonics <a1> …` for the
+amplitudes, `levels <n0> … <n31>` for the samples in decimal, `shape <name>` for a classic waveform,
+and the bare 32 hex digits. All four resolve in the parser, so they cost the same and sound the same.
+
+Reach for `harmonics`. The hex is what the table *is* — it is never how you should have to say it.
 
 These are the same table, so the two bars below are the same sound:
 
@@ -201,6 +204,63 @@ track Summed id add gen gameBoyDmg * 2
 `a1` is the fundamental, `a2` the octave above it, `a3` the twelfth, and so on. Only the ratios
 matter — the table is normalized to fill the 4-bit range either way — so `1 0.5` and `2 1` are the
 same wave.
+
+## Spelling a table you cannot sum
+
+`harmonics` reaches any timbre you would design as a stack of partials, but not every table is one.
+A curve tuned a nibble at a time — a bell with a slight ring in the second half of the cycle, say —
+has no additive recipe, and that is what `levels` is for: the same wave RAM the hex form carries,
+written in decimal. Anything hex can hold, `levels` can hold.
+
+`shape` covers the other end, where the table is a plain waveform and naming it beats spelling it.
+
+```deck
+deck 1
+bpm 92
+
+wave clang levels 8 13 15 15 13 12 11 10 9 8 8 7 7 6 4 5 8 10 11 9 8 8 7 7 6 5 4 3 2 0 0 2
+
+track Bell id b1 gen gameBoyDmg * 2
+  gen type wave wave_shape clang vol 13 env_mode adsr
+  adsr a 0.005 d 0.6 s 2 r 0.6
+  note 72 0 1 v 108
+  note 67 1 1 v 96
+  note 72 2 2 v 112
+
+track Reed id b2 gen gameBoyDmg * 2
+  gen type pulse duty 12 vol 10 env_mode adsr
+  adsr a 0.02 d 0.1 s 9 r 0.2
+  note 48 4 1.5 v 100
+  note 55 5.5 1.5 v 96
+  note 60 7 1 v 104
+```
+
+Every level is a whole number `0..15`, and there must be exactly 32 of them — a level is a wave RAM
+nibble, so there is nothing to round on your behalf.
+
+`shape` takes `sine`, `square`, `saw`, `triangle` or `pulse`, with `duty` as a percent; `square` is
+`pulse duty 50`. A narrow pulse on the wave channel is a reed the two pulse channels cannot make,
+because their duty is fixed to four settings and this one is not:
+
+```deck
+deck 1
+bpm 104
+
+wave thin shape pulse duty 12.5
+
+track Reed id r1 gen gameBoyDmg * 2
+  gen type wave wave_shape thin vol 12 env_mode adsr
+  adsr a 0.03 d 0.12 s 10 r 0.2
+  note 55 0 1 v 100
+  note 60 1 1 v 96
+  note 62 2 2 v 104
+
+track Bass id r2 gen gameBoyDmg * 2
+  gen type pulse duty 50 vol 11 env_mode adsr
+  adsr a 0.01 d 0.05 s 12 r 0.15
+  note 36 0 2 v 104
+  note 43 2 2 v 100
+```
 
 ## Designing a timbre
 

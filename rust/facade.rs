@@ -90,19 +90,23 @@ pub struct Directive {
     pub tokens: Vec<String>,
 }
 
-/// A named PSG wavetable. `levels` is already resolved — a `harmonics` line arrives as the same 32
-/// levels a hex literal produces, with `harmonics` alongside so an emitter can write the source
-/// spelling back instead of flattening it.
+/// A named PSG wavetable. `levels` is already resolved — every spelling arrives as the same 32
+/// levels a hex literal produces, with the source form alongside so an emitter can write it back
+/// instead of flattening everything to hex.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Wave {
     pub line: i64,
     pub name: String,
-    /// `"hex"` or `"harmonics"`.
+    /// `"hex"`, `"harmonics"`, `"levels"`, or `"shape"`.
     pub mode: String,
     /// The 32 hex digits as written, when `mode == "hex"`.
     pub hex: Option<String>,
     /// The amplitudes as written, fundamental first, when `mode == "harmonics"`.
     pub harmonics: Option<Vec<f64>>,
+    /// The waveform name, when `mode == "shape"`: `sine`, `square`, `saw`, `triangle`, `pulse`.
+    pub shape: Option<String>,
+    /// The duty cycle as a percent, when `mode == "shape"` and one was given.
+    pub duty: Option<f64>,
     /// 32 four-bit levels, 0..15. Game Boy wave RAM order.
     pub levels: Vec<i64>,
 }
@@ -485,6 +489,8 @@ pub fn parse(src: &str) -> DeckProgram {
                 Value::Null => None,
                 h => Some(items(&h).iter().filter_map(as_f64).collect()),
             },
+            shape: str_field(w, "shape"),
+            duty: as_f64(&field(w, "duty")),
             levels: items(&field(w, "levels")).iter().filter_map(as_f64).map(|n| n as i64).collect(),
         })
         .collect();

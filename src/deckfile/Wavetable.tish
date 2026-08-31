@@ -1,9 +1,15 @@
 // PSG wavetables: 32 four-bit samples, the Game Boy's wave RAM laid out as one cycle.
 //
-// `wave <name> <32 hex digits>` writes the samples directly. `wave <name> harmonics <a1> <a2> …`
-// says how loud each harmonic is and lets this module land on the samples — the same relationship
-// `steps euclid <hits> <len>` has to a literal step grid, and expanded the same way, at parse time,
-// so a host only ever sees resolved samples.
+// Four spellings, one result. `wave <name> <32 hex digits>` writes the samples directly;
+// `harmonics <a1> <a2> …` says how loud each harmonic is; `levels <32 numbers>` writes the same
+// samples in decimal; `shape <name>` names a classic waveform. All four land on 32 levels here, at
+// parse time — the same relationship `steps euclid <hits> <len>` has to a literal step grid — so a
+// host only ever sees resolved samples and never has to know which spelling produced them.
+//
+// Between them, `harmonics`, `levels` and `shape` can say anything hex can: `harmonics` is the one
+// you reach for, and `levels` is the guarantee that a table which is not a clean additive sum — a
+// curve someone tuned a nibble at a time — still has a spelling you can read. No table is stuck as
+// hex.
 //
 // Level 0 is the bottom of the wave, 15 the top, 7.5 the rest line. A host maps that to its own
 // range (the Web Audio player uses `n / 7.5 - 1`); the GBA bake packs two levels per byte and copies
@@ -56,6 +62,70 @@ export fn harmonicTable(harmonics) {
   while (j < raw.length) {
     out.push(Math.round((raw[j] / peak) * 7.5 + 7.5))
     j = j + 1
+  }
+  return out
+}
+
+/// `levels <n0> … <n31>` -> the same 32 levels, validated.
+///
+/// The exhaustive spelling: every table hex can hold, this can hold too, because it is the same
+/// numbers in decimal. Returns null unless there are exactly 32 of them and each is a whole number
+/// in 0..15 — a level is a wave RAM nibble, so there is no rounding to do on the caller's behalf.
+export fn levelsTable(nums) {
+  if (!nums || nums.length !== 32) {
+    return null
+  }
+  let out = []
+  let i = 0
+  while (i < 32) {
+    let n = nums[i]
+    if (n !== n || n < 0 || n > 15 || Math.floor(n) !== n) {
+      return null
+    }
+    out.push(n)
+    i = i + 1
+  }
+  return out
+}
+
+/// `shape <name> [duty]` -> 32 levels for a classic waveform.
+///
+/// `sine`, `square`, `saw`, `triangle`, and `pulse` at a duty cycle given as a percent (`square` is
+/// `pulse` at 50). These names existed before only as a host-side fallback for `gen wave_shape`,
+/// with a different vocabulary and a different default in each host; resolving them here makes every
+/// host read the same levels. Returns null for a name that is not one of the five.
+export fn shapeTable(name, duty) {
+  let pct = duty
+  if (pct !== pct || pct === null) {
+    pct = 50
+  }
+  let out = []
+  let i = 0
+  while (i < 32) {
+    let phase = i / 32
+    let v = 0
+    if (name === "sine") {
+      v = Math.round(Math.sin(2 * Math.PI * phase) * 7.5 + 7.5)
+    } else if (name === "saw") {
+      v = Math.round(phase * 15)
+    } else if (name === "triangle") {
+      // Up over the first half, back down over the second, so it shares the saw's 0-at-phase-0 start.
+      if (phase < 0.5) {
+        v = Math.round(phase * 2 * 15)
+      } else {
+        v = Math.round((1 - phase) * 2 * 15)
+      }
+    } else if (name === "square" || name === "pulse") {
+      if (phase < pct / 100) {
+        v = 15
+      } else {
+        v = 0
+      }
+    } else {
+      return null
+    }
+    out.push(v)
+    i = i + 1
   }
   return out
 }

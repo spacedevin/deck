@@ -101,6 +101,8 @@
         "name": "organ_hex",
         "mode": "hex",
         "harmonics": null,
+        "shape": null,
+        "duty": null,
         "hex": "8beffecbbbbaa9888776554444310014",
         "levels": [
           8,
@@ -147,6 +149,8 @@
           0.33,
           0.2
         ],
+        "shape": null,
+        "duty": null,
         "hex": null,
         "levels": [
           8,
@@ -190,6 +194,8 @@
         "harmonics": [
           1
         ],
+        "shape": null,
+        "duty": null,
         "hex": null,
         "levels": [
           8,
@@ -237,6 +243,8 @@
           0,
           0.2
         ],
+        "shape": null,
+        "duty": null,
         "hex": null,
         "levels": [
           8,

@@ -46,6 +46,8 @@ import {
   registerTopLevelStatement,
   clearTopLevelStatements,
   harmonicTable,
+  levelsTable,
+  shapeTable,
   decodeWaveHex,
   encodeWaveHex
 } from "../dist/deck.js"
@@ -564,6 +566,54 @@ check("wave empty harmonics errors", parseProgram("deck 1\nwave a harmonics\n").
 check("wave zero harmonics errors", parseProgram("deck 1\nwave a harmonics 0 0\n").errors.length === 1)
 check("wave nan harmonics errors", parseProgram("deck 1\nwave a harmonics 1 x\n").errors.length === 1)
 
+// wave levels: the spelling that makes the set exhaustive. `harmonics` only reaches tables whose
+// partials are in sine phase, so `levels` is what guarantees a hand-tuned curve is still sayable
+// without dropping to hex — which means it has to transcribe hex exactly, digit for digit.
+let wl = parseProgram(
+  "deck 1\nwave a 89acdeefffeedca98653211000112356\nwave b levels 8 9 10 12 13 14 14 15 15 15 14 14 13 12 10 9 8 6 5 3 2 1 1 0 0 0 1 1 2 3 5 6\n"
+)
+check("wave levels no error", wl.errors.length === 0)
+check("wave levels mode", wl.waves[1].mode === "levels")
+check("wave levels no hex", wl.waves[1].hex === null)
+check("wave levels 32 samples", wl.waves[1].levels.length === 32)
+check("wave levels equals hex literal", wl.waves[0].levels.join(",") === wl.waves[1].levels.join(","))
+check("wave levels short errors", parseProgram("deck 1\nwave a levels 1 2 3\n").errors.length === 1)
+check("wave levels empty errors", parseProgram("deck 1\nwave a levels\n").errors.length === 1)
+check("wave levels nan errors", parseProgram("deck 1\nwave a levels 1 x\n").errors.length === 1)
+check(
+  "wave levels out of range errors",
+  parseProgram("deck 1\nwave a levels " + "8 ".repeat(31) + "16\n").errors.length === 1
+)
+check(
+  "wave levels fractional errors",
+  parseProgram("deck 1\nwave a levels " + "8 ".repeat(31) + "7.5\n").errors.length === 1
+)
+
+// wave shape: the classic waveform names, resolved in the parser instead of guessed at per host.
+let ws = parseProgram(
+  "deck 1\nwave s shape sine\nwave h harmonics 1\nwave q shape square\nwave p shape pulse duty 50\n" +
+    "wave w shape saw\nwave t shape triangle\nwave n shape pulse duty 12.5\n"
+)
+check("wave shape no error", ws.errors.length === 0)
+check("wave shape mode", ws.waves[0].mode === "shape")
+check("wave shape retained", ws.waves[0].shape === "sine")
+check("wave shape duty null when unset", ws.waves[0].duty === null)
+check("wave shape duty retained", ws.waves[3].duty === 50)
+check("wave shape sine equals one harmonic", ws.waves[0].levels.join(",") === ws.waves[1].levels.join(","))
+check("wave shape square equals pulse at half duty", ws.waves[2].levels.join(",") === ws.waves[3].levels.join(","))
+check("wave shape saw rises", ws.waves[4].levels[0] === 0 && ws.waves[4].levels[31] === 15)
+check("wave shape triangle peaks in the middle", ws.waves[5].levels[16] === 15)
+check("wave shape duty narrows the pulse", ws.waves[6].levels.filter((n) => n === 15).length === 4)
+check("wave shape 32 levels", ws.waves.every((w) => w.levels.length === 32))
+check("wave shape in range", ws.waves.every((w) => w.levels.every((n) => n >= 0 && n <= 15)))
+check("wave shape missing name errors", parseProgram("deck 1\nwave a shape\n").errors.length === 1)
+check("wave shape unknown errors", parseProgram("deck 1\nwave a shape wobble\n").errors.length === 1)
+check("wave shape bad duty key errors", parseProgram("deck 1\nwave a shape pulse dooty 25\n").errors.length === 1)
+check("wave shape trailing junk errors", parseProgram("deck 1\nwave a shape square extra bits\n").errors.length === 1)
+check("wave shape duty zero errors", parseProgram("deck 1\nwave a shape pulse duty 0\n").errors.length === 1)
+check("wave shape duty full errors", parseProgram("deck 1\nwave a shape pulse duty 100\n").errors.length === 1)
+check("wave shape duty nan errors", parseProgram("deck 1\nwave a shape pulse duty abc\n").errors.length === 1)
+
 check("harmonicTable 32 levels", harmonicTable([1]).length === 32)
 check("harmonicTable in range", harmonicTable([1, 0.5]).every((n) => n >= 0 && n <= 15))
 check("harmonicTable ratios only", encodeWaveHex(harmonicTable([1, 0.5])) === encodeWaveHex(harmonicTable([2, 1])))
@@ -572,6 +622,17 @@ check("harmonicTable empty is null", harmonicTable([]) === null)
 check("harmonicTable null is null", harmonicTable(null) === null)
 check("harmonicTable infinite is null", harmonicTable([1 / 0]) === null)
 check("harmonicTable nan is null", harmonicTable([0 / 0]) === null)
+check("levelsTable passes a valid table", encodeWaveHex(levelsTable(decodeWaveHex("89acdeefffeedca98653211000112356"))) === "89acdeefffeedca98653211000112356")
+check("levelsTable wrong count is null", levelsTable([1, 2, 3]) === null)
+check("levelsTable null is null", levelsTable(null) === null)
+check("levelsTable out of range is null", levelsTable(new Array(31).fill(8).concat([16])) === null)
+check("levelsTable negative is null", levelsTable(new Array(31).fill(8).concat([-1])) === null)
+check("levelsTable fractional is null", levelsTable(new Array(31).fill(8).concat([7.5])) === null)
+check("levelsTable nan is null", levelsTable(new Array(31).fill(8).concat([NaN])) === null)
+check("shapeTable sine matches one harmonic", encodeWaveHex(shapeTable("sine", null)) === encodeWaveHex(harmonicTable([1])))
+check("shapeTable defaults duty to half", encodeWaveHex(shapeTable("pulse", null)) === encodeWaveHex(shapeTable("square", null)))
+check("shapeTable unknown is null", shapeTable("wobble", null) === null)
+check("shapeTable 32 levels", shapeTable("saw", null).length === 32)
 check("decodeWaveHex round trip", encodeWaveHex(decodeWaveHex("8beffecbbbbaa9888776554444310014")) === "8beffecbbbbaa9888776554444310014")
 check("decodeWaveHex short is null", decodeWaveHex("abc") === null)
 check("decodeWaveHex bad digit is null", decodeWaveHex("g".repeat(32)) === null)

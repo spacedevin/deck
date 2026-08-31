@@ -41,7 +41,7 @@ These are recognized by `parseProgram`.
 | Scale lock | `scale <root> <mode>` | `root` = note (`C`, `F#`, `Bb`) or pitch-class `0..11`; modes below. `scale off` / `none` / `chromatic` clears (AST root `-1`) |
 | Launch quant | `launch_quant <n>` | Scene/clip launch grid (bars), `n ≥ 1` |
 | Song seed | `song_seed <int>` | Seeds deterministic randomness (e.g. step probability) |
-| Wavetable | `wave <name> <32 hex>` / `wave <name> harmonics <a1> …` | Named PSG wavetable; see below |
+| Wavetable | `wave <name> harmonics <a1> …` / `levels <n0> … <n31>` / `shape <name> [duty <pct>]` / `<32 hex>` | Named PSG wavetable; see below |
 | Crossfader | `xfade <x> [<y>]` | Both `0..1`; if `y` omitted, `y = 0.5` |
 | Main deck | `main_deck live\|local` | Which booth feeds the main out |
 | Booth mix | `deck_mix <A\|B\|C\|D> [hi n] [mid n] [lo n] [flt n] [vol n]` | Any subset of keys |
@@ -68,26 +68,47 @@ Package helpers: `parseScaleRoot`, `scaleRootNames`, `scaleModeNames`, `scaleInt
 ### Wavetables
 
 ```
-wave <name> <32 hex digits>
 wave <name> harmonics <a1> [a2 a3 …]
+wave <name> levels <n0> <n1> … <n31>
+wave <name> shape sine|square|saw|triangle|pulse [duty <pct>]
+wave <name> <32 hex digits>
 ```
 
 A named PSG wavetable: **32 four-bit levels**, one cycle, in Game Boy wave RAM order. `0` is the bottom
 of the wave, `f` the top, `8` about the rest line. Select one with `gen type wave wave_shape <name>`;
 a name matching no `wave` line falls back to the host's built-in shapes.
 
-The `harmonics` form gives amplitudes instead of samples — `a1` is the fundamental, `a2` the octave
-above it, `a3` the twelfth — and the parser sums them into the same 32 levels, normalized to fill the
-range, so only the ratios matter. Like `steps euclid`, it is **expanded at parse time**: a host reads
-`levels` and never has to know which spelling produced it. These two lines are the same sound:
+All four spellings are **expanded at parse time**, the way `steps euclid` is: a host reads `levels`
+and never has to know which one produced it. The source form is kept on the AST node alongside, so an
+emitter can write back what was written rather than flattening everything to hex.
+
+**`harmonics`** gives amplitudes instead of samples — `a1` is the fundamental, `a2` the octave above
+it, `a3` the twelfth — summed into 32 levels and normalized to fill the range, so only the ratios
+matter. This is the form to reach for: it says what a timbre *is*.
+
+**`levels`** is the same 32 samples in decimal, each a whole number `0..15`. It exists so the set of
+spellings is exhaustive. `harmonics` can only land on tables whose partials are all in sine phase, so
+a curve someone tuned a nibble at a time has no additive recipe — without `levels` it would be stuck
+as hex. Anything hex can say, `levels` can say.
+
+**`shape`** names a classic waveform. `duty` is a percent above 0 and below 100, and applies to
+`pulse`; `square` is `pulse` at 50. These names existed before only as a host-side fallback for
+`wave_shape`, with a different vocabulary and a different default in each host — resolving them here
+means every host gets the same levels.
+
+Every line below is the same sound:
 
 ```
-wave organ 8beffecbbbbaa9888776554444310014
 wave organ harmonics 1 0.5 0.33 0.2
+wave organ 8beffecbbbbaa9888776554444310014
+wave organ levels 8 11 14 15 15 14 12 11 11 11 11 10 10 9 8 8 8 7 7 6 5 5 4 4 4 4 3 1 0 0 1 4
 ```
 
-Errors: a hex form that is not exactly 32 hex digits, a `harmonics` form with no numbers, a
-non-numeric amplitude, or amplitudes that are all zero (silence has no shape to normalize).
+Errors: a hex form that is not exactly 32 hex digits; a `harmonics` form with no numbers, a
+non-numeric amplitude, or amplitudes that are all zero (silence has no shape to normalize); a
+`levels` form without exactly 32 samples, or a sample that is not a whole number `0..15`; a `shape`
+that is not one of the five names, a duty outside `0 < pct < 100`, or trailing tokens that are not
+`duty <pct>`.
 
 ### Track header
 

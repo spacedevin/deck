@@ -1,6 +1,6 @@
 import { normalizeGeneratorId } from './RegistryMap.tish'
 import { parseScaleRoot } from '../ScaleRoot.tish'
-import { harmonicTable, decodeWaveHex } from './Wavetable.tish'
+import { harmonicTable, levelsTable, shapeTable, decodeWaveHex } from './Wavetable.tish'
 
 let topLevelStatements = {}
 
@@ -279,13 +279,14 @@ export fn parseProgram(source) {
       }
       continue
     }
-    // Named PSG wavetable: `wave <name> <32 hex digits>`, or `wave <name> harmonics <a1> <a2> …`.
-    // Both forms resolve to the same 32 levels here, the way `steps euclid` resolves to a step grid,
-    // so a host reads `levels` and never has to know which spelling produced them. `harmonics` is
-    // kept alongside so an emitter can write the source form back rather than flattening it to hex.
+    // Named PSG wavetable. Four spellings — `harmonics <a1> …`, `levels <n0> … <n31>`,
+    // `shape <name> [duty <pct>]`, and the bare 32 hex digits — all resolving to the same 32 levels
+    // here, the way `steps euclid` resolves to a step grid, so a host reads `levels` and never has to
+    // know which spelling produced them. The source form is kept alongside so an emitter can write
+    // it back rather than flattening everything to hex.
     if (head === "wave") {
       if (toks.length < 3) {
-        errors.push({ line: i, msg: "wave: expected `wave <name> <32 hex digits>` or `wave <name> harmonics <a1> …`" })
+        errors.push({ line: i, msg: "wave: expected `wave <name> harmonics <a1> …`, `wave <name> levels <n0> … <n31>`, `wave <name> shape <name>`, or `wave <name> <32 hex digits>`" })
         continue
       }
       let waveName = toks[1]
@@ -317,7 +318,64 @@ export fn parseProgram(source) {
           errors.push({ line: i, msg: "wave `" + waveName + "`: every harmonic is zero" })
           continue
         }
-        waves.push({ lineNo: i, name: waveName, mode: "harmonics", harmonics: amps, hex: null, levels: built })
+        waves.push({ lineNo: i, name: waveName, mode: "harmonics", harmonics: amps, shape: null, duty: null, hex: null, levels: built })
+        continue
+      }
+      if (toks[2] === "levels") {
+        let nums = []
+        let badLevel = null
+        let li = 3
+        while (li < toks.length) {
+          let lv = Number(toks[li])
+          if (lv !== lv) {
+            if (badLevel === null) {
+              badLevel = toks[li]
+            }
+          } else {
+            nums.push(lv)
+          }
+          li = li + 1
+        }
+        if (badLevel !== null) {
+          errors.push({ line: i, msg: "wave `" + waveName + "`: levels takes numbers, got `" + badLevel + "`" })
+          continue
+        }
+        if (nums.length !== 32) {
+          errors.push({ line: i, msg: "wave `" + waveName + "`: levels needs exactly 32 samples, got " + String(nums.length) })
+          continue
+        }
+        let table = levelsTable(nums)
+        if (table === null) {
+          errors.push({ line: i, msg: "wave `" + waveName + "`: every level must be a whole number 0-15" })
+          continue
+        }
+        waves.push({ lineNo: i, name: waveName, mode: "levels", harmonics: null, shape: null, duty: null, hex: null, levels: table })
+        continue
+      }
+      if (toks[2] === "shape") {
+        if (toks.length < 4) {
+          errors.push({ line: i, msg: "wave `" + waveName + "`: expected `shape <name> [duty <pct>]`" })
+          continue
+        }
+        let shapeName = toks[3]
+        let dutyPct = null
+        if (toks.length > 4) {
+          if (toks[4] !== "duty" || toks.length !== 6) {
+            errors.push({ line: i, msg: "wave `" + waveName + "`: expected `shape <name> [duty <pct>]`" })
+            continue
+          }
+          dutyPct = Number(toks[5])
+          if (dutyPct !== dutyPct || dutyPct <= 0 || dutyPct >= 100) {
+            errors.push({ line: i, msg: "wave `" + waveName + "`: duty is a percent above 0 and below 100, got `" + toks[5] + "`" })
+            continue
+          }
+        }
+        let shaped = shapeTable(shapeName, dutyPct)
+        if (shaped === null) {
+          errors.push({ line: i, msg: "wave `" + waveName + "`: unknown shape `" + String(shapeName) + "` — use sine, square, saw, triangle or pulse" })
+          continue
+        }
+        waves.push({ lineNo: i, name: waveName, mode: "shape", harmonics: null, shape: shapeName, duty: dutyPct, hex: null, levels: shaped })
         continue
       }
       let decoded = decodeWaveHex(toks[2])
@@ -325,7 +383,7 @@ export fn parseProgram(source) {
         errors.push({ line: i, msg: "wave `" + waveName + "`: needs 32 hex digits" })
         continue
       }
-      waves.push({ lineNo: i, name: waveName, mode: "hex", harmonics: null, hex: toks[2], levels: decoded })
+      waves.push({ lineNo: i, name: waveName, mode: "hex", harmonics: null, shape: null, duty: null, hex: toks[2], levels: decoded })
       continue
     }
     // Crossfader position: `xfade <x> <y>` — both 0..1 (X = deck A↔B, Y = top↔bottom corner).

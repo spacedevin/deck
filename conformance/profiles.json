@@ -23,7 +23,8 @@
       },
       "mustAccept": [
         "012-gba-subset",
-        "013-wave"
+        "013-wave",
+        "014-wave-levels-shape"
       ],
       "extensions": {
         "topLevel": [],

@@ -218,3 +218,40 @@ fn wave_harmonics_matches_hex_literal() {
     assert_eq!(p.waves[0].levels, p.waves[1].levels);
     assert!(p.waves[0].levels.iter().all(|n| (0..=15).contains(n)));
 }
+
+/// `levels` is what makes `wave` exhaustive: `harmonics` only reaches sine-phase tables, so without
+/// a decimal spelling of the wave RAM itself a hand-tuned curve would have no form but hex. It must
+/// resolve to exactly the hex it transcribes, and `shape sine` must equal a single harmonic.
+#[test]
+fn wave_levels_and_shape_match_their_equivalents() {
+    let p = deckfile::facade::parse(concat!(
+        "deck 1\n",
+        "wave a 89acdeefffeedca98653211000112356\n",
+        "wave b levels 8 9 10 12 13 14 14 15 15 15 14 14 13 12 10 9 8 6 5 3 2 1 1 0 0 0 1 1 2 3 5 6\n",
+        "wave c shape sine\n",
+        "wave d harmonics 1\n",
+        "wave e shape square\n",
+        "wave f shape pulse duty 50\n",
+    ));
+    assert!(p.errors.is_empty(), "unexpected errors: {:?}", p.errors);
+    assert_eq!(p.waves.len(), 6);
+
+    assert_eq!(p.waves[1].mode, "levels");
+    assert_eq!(p.waves[1].hex, None);
+    assert_eq!(p.waves[1].shape, None);
+    assert_eq!(p.waves[1].levels, p.waves[0].levels);
+
+    assert_eq!(p.waves[2].mode, "shape");
+    assert_eq!(p.waves[2].shape.as_deref(), Some("sine"));
+    assert_eq!(p.waves[2].duty, None);
+    assert_eq!(p.waves[2].levels, p.waves[3].levels);
+
+    // `square` is `pulse` at half duty, and saying so must not produce a second sound.
+    assert_eq!(p.waves[5].duty, Some(50.0));
+    assert_eq!(p.waves[4].levels, p.waves[5].levels);
+
+    for w in &p.waves {
+        assert_eq!(w.levels.len(), 32);
+        assert!(w.levels.iter().all(|n| (0..=15).contains(n)));
+    }
+}
