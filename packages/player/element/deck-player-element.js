@@ -19,7 +19,7 @@
 // the declaration as an identifier expression and emits JS that doesn't even load. Everything with
 // actual behaviour lives in the Tish source; this is the DOM shell around it.
 
-import { createDeckPlayer } from '../dist/deck-player.js'
+import { createDeckPlayer, stepTriggers } from '../dist/deck-player.js'
 
 const STYLES = `
 :host { display: inline-flex; align-items: center; gap: 8px; font: inherit; color: inherit;
@@ -164,13 +164,69 @@ export class DeckPlayerElement extends HTMLElement {
     if (state === 'idle') this._fill.style.width = '0%'
   }
 
+  /**
+   * The highlighted copy of this song, if the page rendered one next to us.
+   *
+   * The element owns the audio; the code block is the page's. They are matched up through the data
+   * attributes the highlighter emits — `data-track` on every line, `data-step` on every step in a
+   * lane — so neither has to know how the other is built, and a `<deck-player>` with no code beside
+   * it simply finds nothing and lights nothing.
+   */
+  _collectCode () {
+    this._lines = []
+    this._lanes = []
+    this._lastStep = -1
+    const host = this.closest('.deck-block') ?? this.parentElement
+    const code = host ? host.querySelector('pre') : null
+    if (!code) return
+    this._lines = Array.from(code.querySelectorAll('.dk-line[data-track]'))
+    for (const line of this._lines) {
+      const steps = Array.from(line.querySelectorAll('[data-step]'))
+      if (steps.length) this._lanes.push(steps)
+    }
+  }
+
+  _clearCode () {
+    for (const lane of this._lanes ?? []) {
+      for (const s of lane) s.classList.remove('dk-now')
+    }
+    for (const line of this._lines ?? []) line.classList.remove('dk-live')
+    this._lastStep = -1
+  }
+
+  /** Light the step under the playhead, and the lines of every track sounding on it. */
+  _paintCode (pos) {
+    const step = Math.floor(pos * 4)
+    if (step === this._lastStep) return
+    this._lastStep = step
+
+    // Lanes are their own length: a 16-step lane and a 32-step lane under the same playhead are at
+    // different places in their own patterns, which is exactly what the sequencer does with them.
+    for (const lane of this._lanes) {
+      const at = ((step % lane.length) + lane.length) % lane.length
+      for (let i = 0; i < lane.length; i++) lane[i].classList.toggle('dk-now', i === at)
+    }
+
+    let live = null
+    try {
+      live = new Set(stepTriggers(this._song, step).map((t) => t.busIndex))
+    } catch {
+      return
+    }
+    for (const line of this._lines) {
+      line.classList.toggle('dk-live', live.has(Number(line.dataset.track)))
+    }
+  }
+
   _startTicking () {
     this._stopTicking()
+    this._collectCode()
     const tick = () => {
       if (!this._player || !this._player.isPlaying()) return
       const span = this._song.totalBeats ?? this._song.loopBeats
       const pos = this._player.position()
       this._fill.style.width = `${span > 0 ? ((pos % span) / span) * 100 : 0}%`
+      if (this._lines.length) this._paintCode(pos)
       this._raf = requestAnimationFrame(tick)
     }
     this._raf = requestAnimationFrame(tick)
@@ -181,6 +237,7 @@ export class DeckPlayerElement extends HTMLElement {
       cancelAnimationFrame(this._raf)
       this._raf = 0
     }
+    this._clearCode()
   }
 }
 
