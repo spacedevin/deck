@@ -50,6 +50,21 @@ const SECTIONS = [
     defaultLang: 'deck',
   },
   {
+    label: 'Instruments',
+    dir: 'packages/synths',
+    slug: 'synths',
+    order: ['README.md', 'CATALOG.md'],
+    ignore: ['node_modules', 'dist', 'src', 'test'],
+    // Same reason as Playback below: README.md is PUBLISHED, so its title and description are
+    // declared here rather than in frontmatter that npmjs.com would render as stray text.
+    titles: { 'README.md': 'Instruments', 'CATALOG.md': 'Catalog' },
+    descriptions: {
+      'README.md': 'The instrument catalog for .deck — 33 voices, shared by every host.',
+      'CATALOG.md': 'Every voice, its parameters and defaults, and the factory presets.',
+    },
+    defaultLang: 'deck',
+  },
+  {
     label: 'Playback',
     dir: 'packages/player',
     slug: 'player',
