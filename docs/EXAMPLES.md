@@ -5,11 +5,16 @@ button; in a checkout, drop any of them in a `.deck` file.
 
 The grammar reference shows *syntax* (`note <midi> <startBeat> …`); this page shows *songs*.
 
-Everything here uses `gameBoyDmg`, `gbaDirectSound` or `basicOsc` — the three generators this player
-synthesizes faithfully, so a Play button is not an approximation. The chip examples sound the same in
-a browser as they do on a GBA; `basicOsc` is the way out of the console when you want one. Other
-generator ids parse fine, but the player substitutes a plain oscillator and says so in
-`song.substitutions`.
+Every block on this page plays. The player carries the whole voice catalogue, so nothing here is
+substituted for a plain oscillator — the chip examples sound the same in a browser as they do on a
+GBA, and the rest sound like themselves.
+
+Press play and the code follows along: the step under the playhead is lit in each lane, and the
+lines of every track sounding on that step are tinted.
+
+Two voices are the exception. `ttsVocal` and `meSpeakVocal` reach outside the audio graph for
+speech, so they need something from the host and do not appear in an offline render — see
+[Speech](#speech).
 
 ## Steps
 
@@ -650,6 +655,273 @@ track Bass id bass gen reeseBass * 2
   mix gain 0.4
   note 41 0 1.5 v 112
   note 39 4 1.5 v 108
+```
+
+### Noise and metal
+
+`noiseBurst` is filtered noise with an envelope — a hat, a shaker, a rim. `cymbal`'s `tune` is the
+frequency of its inharmonic bank in Hz, not a note, so it sits in the hundreds.
+
+```deck
+deck 1
+bpm 132
+
+track Hat id hat gen noiseBurst * 1
+  gen attack 0.002 decay 0.07 tone 0.45 pitch_follow 0.25
+  mix gain 0.3 pan 0.1
+  step_pitch 70
+  steps x . x . | x . x . | x . x . | x . x x
+
+track Crash id crash gen cymbal * 4
+  gen tune 320 metallic 0.85 decay 1.6 highpass 6000
+  mix gain 0.22 pan -0.2
+  fx reverb_send 0.4
+  note 72 0 2 v 96
+
+track Ride id ride gen cymbal * 1
+  gen tune 480 metallic 0.6 decay 0.35 highpass 9000
+  mix gain 0.16 pan 0.25
+  step_pitch 76
+  steps x . . x | . . x . | x . . x | . . x .
+
+track Kick id kick gen drumSynth * 1
+  gen tone sine pitch_env 30 pitch_decay 0.035 decay 0.3 drive 0.2
+  mix gain 0.5
+  step_pitch 36
+  steps x . . . | x . . . | x . . . | x . x .
+```
+
+### Two-operator FM
+
+`fmTone` is one modulator on one carrier. `ratio` is the modulator's frequency relative to the note
+and `mod_index` is how hard it pushes — low ratios and a low index give warmth, high ones give
+bells and clangs.
+
+```deck
+deck 1
+bpm 96
+
+track Keys id keys gen fmTone * 4
+  gen ratio 2 mod_index 3 carrier_wave sine mod_wave sine
+  adsr a 0.005 d 0.5 s 5 r 0.4
+  mix gain 0.32 pan -0.15
+  fx reverb_send 0.3
+  note 60 0 1 v 88
+  note 64 0 1 v 82
+  note 67 0 1 v 80
+  note 58 4 1 v 88
+  note 62 4 1 v 82
+  note 65 4 1 v 80
+
+track Clang id clang gen fmTone * 4
+  gen ratio 7.03 mod_index 8 carrier_wave sine mod_wave triangle
+  adsr a 0.002 d 1.6 s 1 r 1.2
+  mix gain 0.2 pan 0.3
+  fx reverb_send 0.55 cutoff 7000
+  note 84 2 2 v 70
+  note 79 10 2 v 66
+```
+
+### Drift
+
+`aether` glides between whatever it is given and swells rather than striking. Long notes and a slow
+tempo are the point.
+
+```deck
+deck 1
+bpm 64
+
+track Air id air gen aether * 4
+  gen glide 0.4 waver 0.5 tone 0.3 swell 0.45 air 0.25
+  mix gain 0.34 pan -0.2
+  fx reverb_send 0.6
+  note 64 0 6 v 74
+  note 67 6 6 v 70
+  note 71 12 4 v 76
+
+track Low id low gen aether * 4
+  gen glide 0.7 waver 0.3 tone 0.15 swell 0.6 air 0.1
+  mix gain 0.3 pan 0.2
+  fx reverb_send 0.5 cutoff 2200
+  note 45 0 8 v 66
+  note 43 8 8 v 68
+```
+
+### Vowels
+
+`formantVocal` shapes a voice with the three formants of a vowel, and takes the vowel from the
+note's lyric — `l A` for *father*, `l I` for *see*, `l U` for *who*. Thirteen are defined: `I`, `IH`,
+`EY`, `E`, `AE`, `A`, `O`, `OH`, `OO`, `U`, `UH`, `ER`, `UX`.
+
+```deck
+deck 1
+bpm 84
+
+track Voice id vox gen formantVocal * 4
+  gen glide 0.1 vib_depth 0.02 vib_rate 5 humanize 0.5 release 0.2
+  mix gain 0.36
+  fx reverb_send 0.4
+  note 64 0 1.5 v 88 l A
+  note 67 1.5 1.5 v 84 l EY
+  note 69 3 1 v 86 l I
+  note 67 4 2 v 82 l OH
+  note 62 6 2 v 80 l U
+  note 64 8 3 v 86 l A
+  note 60 12 4 v 78 l ER
+
+track Under id und gen pad * 4
+  gen wave1 triangle wave2 sine detune 10 cutoff 900
+  adsr a 0.8 d 0.6 s 10 r 1.6
+  mix gain 0.2 pan -0.25
+  fx reverb_send 0.45
+  note 45 0 7.6 v 64
+  note 43 8 7.6 v 66
+```
+
+### One chip, generically
+
+`chiptune` is the console-agnostic chip voice: a pulse with adjustable width, optional PWM, an
+optional arpeggio, and bitcrush and lowpass for grit. Use it when you want the character without
+committing to a particular machine's quirks.
+
+```deck
+deck 1
+bpm 150
+
+track Lead id lead gen chiptune * 2
+  gen waveform pulse pulse_width 0.25 pwm_speed 1.5 bitcrush 0 lowpass 0
+  adsr a 0.005 d 0.25 s 7 r 0.08
+  mix gain 0.4 pan -0.2
+  note 72 0 0.5 v 100
+  note 76 0.5 0.5 v 94
+  note 79 1 1 v 98
+  note 77 2 0.5 v 92
+  note 74 2.5 1.5 v 96
+  note 72 4 2 v 100
+  note 67 6 2 v 92
+
+track Arp id arp gen chiptune * 2
+  gen waveform pulse pulse_width 0.5 arp_rate 16 arp_semis 12 bitcrush 6
+  adsr a 0.002 d 0.1 s 6 r 0.05
+  mix gain 0.26 pan 0.25
+  note 48 0 4 v 84
+  note 46 4 4 v 84
+```
+
+### The rest of the sync family
+
+`syncLead` sweeps once per note. `obSync` sweeps continuously at `sweep_rate` for a slow pulsing
+pad, and `laserSync` drops instead of sweeping — `drop_amt` semitones at `drop_rate`.
+
+```deck
+deck 1
+bpm 118
+
+track Sweep id ob gen obSync * 4
+  gen detune 15 sweep_rate 0.5 sweep_amt 24 cutoff 1200 resonance 2 filter_env 2400 filter_decay 0.8
+  adsr a 0.1 d 0.4 s 10 r 0.5
+  mix gain 0.32 pan -0.2
+  fx reverb_send 0.35
+  note 52 0 7.6 v 84
+  note 50 8 7.6 v 86
+
+track Zap id zap gen laserSync * 2
+  gen drop_rate 0.8 drop_amt 36 slave_base 18
+  adsr a 0.01 d 0.3 s 2 r 0.2
+  mix gain 0.3 pan 0.3
+  note 84 1 0.5 v 104
+  note 84 5 0.5 v 100
+  note 88 9 0.5 v 106
+  note 81 13 0.5 v 98
+```
+
+### Building a voice out of parts
+
+`patch` has no fixed architecture. Its `gen_block` names oscillators, noise, filters, shapers and
+gains, wires them with `conn`, and drives any parameter with a breakpoint `env`. It is how you write
+a voice the catalog does not have.
+
+```deck
+deck 1
+bpm 110
+
+track Pluck id pl gen patch * 2
+  gen_block patch
+    osc o1 sawtooth note
+    osc o2 sawtooth note detune 9
+    filter f1 lowpass q 6 freq 2400
+    gain a1 0
+    conn o1 f1 0.6
+    conn o2 f1 0.5
+    conn f1 a1 1
+    conn a1 out 1
+    env a1.gain set 0 0 lin 0.004 0.9 exp 0.35 0.001
+    env f1.frequency set 0 3800 exp 0.3 700
+  end gen_block
+  mix gain 0.36 pan -0.1
+  fx reverb_send 0.3
+  note 57 0 0.5 v 100
+  note 64 0.5 0.5 v 92
+  note 69 1 0.5 v 96
+  note 64 1.5 0.5 v 88
+  note 55 4 0.5 v 100
+  note 62 4.5 0.5 v 92
+  note 67 5 1 v 96
+
+track Hat id ph gen patch * 1
+  gen_block patch
+    noise n
+    filter f highpass freq 8000
+    gain a 0
+    conn n f 1
+    conn f a 1
+    conn a out 1
+    env a.gain set 0 0.25 exp 0.05 0.001
+  end gen_block
+  mix gain 0.22 pan 0.2
+  step_pitch 70
+  steps x . x . | x . x . | x . x . | x . x x
+```
+
+### Speech
+
+Two voices sing words rather than vowels, and both need something from the host that the other
+thirty-one do not.
+
+- `ttsVocal` drives the browser's own speech synthesiser through the Web Speech API. It needs a
+  live browser with a voice installed.
+- `meSpeakVocal` uses the meSpeak engine and needs its worker and voice data served by the host.
+
+Because both reach outside the audio graph, neither appears in an offline render — the command-line
+renderer in [Rendering to audio](RENDERING.md) will produce silence for them. They are written the
+same way as `formantVocal`, with the lyric carrying a word instead of a vowel:
+
+```deck
+deck 1
+bpm 90
+
+track Words id w gen ttsVocal * 4
+  gen glide 0.1
+  mix gain 0.4
+  note 60 0 1 v 90 l hello
+  note 64 1 1 v 88 l there
+  note 62 2 2 v 86 l friend
+```
+
+`meSpeakVocal` takes the same shape, and adds a `voice` naming the meSpeak voice the host has
+loaded:
+
+```deck
+deck 1
+bpm 90
+
+track Chant id ms gen meSpeakVocal * 4
+  gen voice en pitch 50 speed 160
+  mix gain 0.4
+  fx reverb_send 0.3
+  note 57 0 1.5 v 92 l one
+  note 60 1.5 1.5 v 88 l two
+  note 64 3 2 v 90 l three
 ```
 
 ## Mixing and effects
