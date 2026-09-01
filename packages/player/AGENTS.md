@@ -30,24 +30,31 @@ and that stands: `../../src/` stays audio-free. Everything that rule excludes li
   corpus as test *input* and keeps its own fixtures for playback behaviour.
 - Session / co-DJ / ownership, DJ mixer crossfading, cue outputs, scratch platters — all dropped from
   the Deckard port on purpose.
-- Instrument catalogs beyond the generators listed below.
+- **Voice implementations.** Those live in `@spacedevin/deck-synths`, in this repo under
+  `packages/synths/`. This package owns the IR, the buses, the transport and the master chain — not
+  the instruments.
 
 ## Generators
 
-Ported from Deckard (`tish-midi/src/generators/`), which is the reference host. The port is
-source-level: those modules are already Tish and already pure
-(`play*(ctx, bus, t, midi, vel, durSec, ch, bendSemis)`), so a fidelity difference is a porting bug,
-not a design choice.
+The catalog is **`@spacedevin/deck-synths`** (`packages/synths/`), which ships from this repo in
+lockstep with the language and this package. All 33 voices live there, including `patch` and
+`matrixFm`; a voice is a pure function
+(`play*(ctx, bus, t, midi, vel, durSec, ch, bendSemis)`) that connects its last node to `bus.input`.
+Add a voice there, not here.
 
-| Tier | Generators | State |
-|------|-----------|-------|
-| 1 | `gameBoyDmg`, `gbaDirectSound`, `basicOsc` | ported |
-| 2 | the other node-graph voices (`chiptune`, `nes2a03`, `c64sid`, `ym2612`, `sn76489`, `spc700`, `noiseBurst`, `fmTone`, `pad`, `bell`, `drumSynth`, …) | not yet ported |
-| 3 | `patch`, `matrixFm` — need the gen_block graph parsers + the sync worklet | not yet ported |
-| — | `ttsVocal`, `meSpeakVocal` | **excluded**: Web Speech API / `mespeak` dependency |
+This package still carries its own `gameBoyDmg`, `gbaDirectSound` and `basicOsc` under
+`src/generators/`, and that is the remaining duplication to remove. They are not interchangeable
+with the catalog's copies yet, for one load-bearing reason: **these return
+`{ stopTime, disconnects }` and let the caller prune, while the catalog's voices self-clean with a
+wall-clock `setTimeout`.** The return contract is what makes `renderDeckToBuffer` and the Node tests
+work at all — a timer has no meaning inside an `OfflineAudioContext`. Consolidating means retrofitting
+all 33 to the return contract first, and moving the timer policy to the host's call site.
 
-Anything unported falls back to `basicOsc` so a song still plays; `unsupportedGenerators()` reports
-what was substituted.
+A generator id this package has no voice for falls back to `basicOsc` so a song still plays, and is
+reported in `song.substitutions`.
+
+`ttsVocal` and `meSpeakVocal` need the Web Speech API and a `mespeak` worker respectively, so they
+stay out of scope here regardless.
 
 ## Why `element/` is not Tish
 
