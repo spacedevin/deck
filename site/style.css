@@ -247,6 +247,20 @@ pre code { background: none; color: inherit; padding: 0; font-size: inherit; }
 /* A step grid reads as rhythm, so `x` has to pop off `.` at a glance. */
 .dk-step { color: var(--accent); font-weight: 700; }
 
+/* Playback lighting. The element adds these while a block is playing: `dk-now` on the step under
+   the playhead in each lane, `dk-live` on the lines of every track sounding on that step. Both are
+   removed on pause, so a block at rest reads exactly as it did before. */
+.dk-step.dk-now {
+  background: var(--accent);
+  color: var(--code-bg);
+  border-radius: 2px;
+  box-shadow: 0 0 0 2px var(--accent-dim);
+}
+.dk-line.dk-live { background: var(--accent-dim); }
+@media (prefers-reduced-motion: no-preference) {
+  .dk-line { transition: background 120ms linear; }
+}
+
 /* ── tables ──────────────────────────────────────────────────────────────── */
 
 .table-wrap, main table { display: block; overflow-x: auto; }
