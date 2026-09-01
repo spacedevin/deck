@@ -2,7 +2,7 @@
   "name": "@spacedevin/deck-player",
   "version": "0.1.0",
   "type": "module",
-  "description": "Web Audio player for the .deck language — chip-tune synths, transport, and a <deck-player> element",
+  "description": "Web Audio player for the .deck language \u2014 chip-tune synths, transport, and a <deck-player> element",
   "license": "MIT",
   "author": "spacedevin",
   "repository": {
@@ -61,15 +61,16 @@
     "gameboy",
     "gba"
   ],
-  "dependencies": {
-    "@spacedevin/deck": "file:../.."
-  },
   "peerDependencies": {
-    "@tishlang/tish": ">=3.2.2"
+    "@tishlang/tish": ">=3.2.2",
+    "@spacedevin/deck": "^1.8.0"
   },
   "peerDependenciesMeta": {
     "@tishlang/tish": {
       "optional": true
     }
+  },
+  "devDependencies": {
+    "@spacedevin/deck": "file:../.."
   }
 }
