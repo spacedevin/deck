@@ -39,15 +39,16 @@
   },
   "main": "./dist/deck-synths.js",
   "module": "./dist/deck-synths.js",
-  "dependencies": {
-    "@spacedevin/deck": "file:../.."
-  },
   "peerDependencies": {
-    "@tishlang/tish": ">=3.2.2"
+    "@tishlang/tish": ">=3.2.2",
+    "@spacedevin/deck": "^1.8.0"
   },
   "peerDependenciesMeta": {
     "@tishlang/tish": {
       "optional": true
     }
+  },
+  "devDependencies": {
+    "@spacedevin/deck": "file:../.."
   }
 }

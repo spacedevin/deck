@@ -228,7 +228,8 @@ jobs:
             const fs = require("fs"), p = "./packages/synths/package.json";
             const j = JSON.parse(fs.readFileSync(p, "utf8"));
             j.version = process.argv[1];
-            j.dependencies["@spacedevin/deck"] = "^" + process.argv[1];
+            j.peerDependencies["@spacedevin/deck"] = "^" + process.argv[1];
+            delete j.devDependencies["@spacedevin/deck"];
             fs.writeFileSync(p, JSON.stringify(j, null, 2) + "\n");
           ' "${{ steps.gate.outputs.version }}"
           npm pack -w @spacedevin/deck-synths
@@ -249,7 +250,8 @@ jobs:
             const fs = require("fs"), p = "./packages/player/package.json";
             const j = JSON.parse(fs.readFileSync(p, "utf8"));
             j.version = process.argv[1];
-            j.dependencies["@spacedevin/deck"] = "^" + process.argv[1];
+            j.peerDependencies["@spacedevin/deck"] = "^" + process.argv[1];
+            delete j.devDependencies["@spacedevin/deck"];
             fs.writeFileSync(p, JSON.stringify(j, null, 2) + "\n");
           ' "${{ steps.gate.outputs.version }}"
           npm pack -w @spacedevin/deck-player
