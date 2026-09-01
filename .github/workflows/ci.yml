@@ -199,7 +199,7 @@ jobs:
       - name: Refuse to package without a licence
         if: steps.gate.outputs.continue == 'true'
         run: |
-          for f in LICENSE packages/player/LICENSE; do
+          for f in LICENSE packages/player/LICENSE packages/synths/LICENSE; do
             if [ ! -f "$f" ]; then
               echo "::error::Missing $f, but package.json declares a licence. Add the file, or correct the declaration, before anything is published."
               exit 1
@@ -217,6 +217,22 @@ jobs:
           ' "${{ steps.gate.outputs.version }}"
           npm pack
           mv spacedevin-deck-*.tgz spacedevin-deck-npm-package.tgz
+
+      # The synths catalog releases in lockstep too. Same `file:../..` → real version rewrite as the
+      # player, and for the same reason: the workspace links locally so CI builds the source in this
+      # repo, but a published tarball needs a version a consumer can actually resolve.
+      - name: Stamp the version and pack @spacedevin/deck-synths
+        if: steps.gate.outputs.continue == 'true'
+        run: |
+          node -e '
+            const fs = require("fs"), p = "./packages/synths/package.json";
+            const j = JSON.parse(fs.readFileSync(p, "utf8"));
+            j.version = process.argv[1];
+            j.dependencies["@spacedevin/deck"] = "^" + process.argv[1];
+            fs.writeFileSync(p, JSON.stringify(j, null, 2) + "\n");
+          ' "${{ steps.gate.outputs.version }}"
+          npm pack -w @spacedevin/deck-synths
+          mv spacedevin-deck-synths-*.tgz spacedevin-deck-synths-npm-package.tgz
 
       # The player releases in lockstep: same tag, same version. Its dependency on the language
       # package is `file:../..` so the workspace links locally and CI tests the source in this repo —
@@ -264,5 +280,8 @@ jobs:
                     - path: spacedevin-deck-player-npm-package.tgz
                       name: spacedevin-deck-player-npm-package.tgz
                       label: npm package (@spacedevin/deck-player)
+                    - path: spacedevin-deck-synths-npm-package.tgz
+                      name: spacedevin-deck-synths-npm-package.tgz
+                      label: npm package (@spacedevin/deck-synths)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
