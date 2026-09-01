@@ -16,9 +16,11 @@ import { stepTriggers, playStep, songStepCount } from './audio/Playback.tish'
 import { createTransport } from './audio/Transport.tish'
 import { secondsPerStep, swingOffsetSec, stepsToScheduleInWindow, underrunsInBatch } from './schedule/Scheduler.tish'
 import { midiToHz, automationAt, sixteenthSeconds } from './schedule/Engine.tish'
-import { portedGeneratorIds, knownUnportedGeneratorIds, isPortedGeneratorId, defaultParamsForGeneratorId } from './generators/Registry.tish'
-import { normalizeDuty } from './generators/Duty.tish'
-import { dispatchPlayNote } from './generators/Dispatch.tish'
+import { portedGeneratorIds, knownUnportedGeneratorIds, isPortedGeneratorId } from './generators/Registry.tish'
+import { defaultParamsForGeneratorId } from '@spacedevin/deck-synths'
+import { normalizeDuty } from '@spacedevin/deck-synths'
+import { dispatchPlayNote } from '@spacedevin/deck-synths'
+import { ensureSyncWorklet } from '@spacedevin/deck-synths'
 import { expandTriggerNotes } from './audio/NoteExpand.tish'
 import { snapToScale, songSnapPitch } from './song/Scale.tish'
 
@@ -400,19 +402,31 @@ export fn renderDeckToBuffer(source, opts) {
   // A tail so the last note's release isn't cut off mid-decay.
   let seconds = steps * secPerStep + 2.0
   let ctx = new OfflineAudioContext(2, Math.ceil(seconds * sampleRate), sampleRate)
-  let graph = buildAudioGraph(ctx, song, { gain: o.gain, reverb: o.reverb })
 
-  let t0 = 0.05
-  let s = 0
-  while (s < steps) {
-    let when = t0 + s * secPerStep + swingOffsetSec(s, secPerStep, song.swing)
-    playStep(ctx, song, graph, s, when)
-    s = s + 1
+  // Sync voices construct an AudioWorkletNode and fall back to a plain oscillator when the
+  // processor was never registered. Registration is async, and an offline render gets no second
+  // chance once startRendering() has run — so wait for the module before scheduling anything.
+  let ready = ensureSyncWorklet(ctx)
+  let schedule = fn () {
+    let graph = buildAudioGraph(ctx, song, { gain: o.gain, reverb: o.reverb })
+
+    let t0 = 0.05
+    let s = 0
+    while (s < steps) {
+      let when = t0 + s * secPerStep + swingOffsetSec(s, secPerStep, song.swing)
+      playStep(ctx, song, graph, s, when)
+      s = s + 1
+    }
+    return ctx.startRendering()
   }
-  return ctx.startRendering()
+  if (ready) {
+    return ready.then(schedule)
+  }
+  return schedule()
 }
 
 export {
+  ensureSyncWorklet,
   // Song IR
   livePlayerCount,
   parseSong,

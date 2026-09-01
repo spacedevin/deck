@@ -1,3 +1,9 @@
+// midiToHz lives with the voices that use it, in @spacedevin/deck-synths. Two definitions
+// inlined into one program is a duplicate declaration.
+import { midiToHz } from '@spacedevin/deck-synths'
+
+export { midiToHz }
+
 // Project time → playback parameters. Pure math: no DOM, no audio nodes.
 //
 // Ported from Deckard (tish-midi/src/schedule/Engine.tish).
@@ -29,6 +35,3 @@ export fn automationAt(points, beat) {
   return points[points.length - 1].value
 }
 
-export fn midiToHz(midi) {
-  return 440 * Math.pow(2, (midi - 69) / 12)
-}
