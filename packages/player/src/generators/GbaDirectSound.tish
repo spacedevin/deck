@@ -68,7 +68,10 @@ fn getGbaBuffer(ctx, shape, duty) {
     } else if (shape === "triangle") {
       v = phase < 0.5 ? (phase * 4.0 - 1.0) : (3.0 - phase * 4.0)
     } else if (shape === "square") {
-      // `square` names a 50% wave, so it ignores `duty` on purpose — on both sides.
+      // `square` names a 50% wave, so it ignores `duty` on purpose.
+      // NOTE: the GBA bake does not agree yet — deckpack.rs `pcm_table` has no `square` arm, so it
+      // falls through to pulse, which does honour `duty`. `gen waveform square duty 25` is 50%
+      // here and 25% in the ROM. Tracked on the engine side; do not assume parity for `square`.
       v = phase < 0.5 ? 1.0 : -1.0
     } else if (shape === "sine") {
       v = Math.sin(phase * Math.PI * 2)
