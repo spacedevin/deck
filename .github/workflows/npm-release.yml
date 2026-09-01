@@ -2,16 +2,16 @@
 # Downloads the npm package tarball from the release (no rebuild).
 #
 # AUTH: npm OIDC trusted publishing (no long-lived NPM_TOKEN). One-time setup on
-# npmjs.com — needed SEPARATELY for `@spacedevin/deck` AND `@spacedevin/deck-player`, since trusted
-# publishers are per package. Settings > Trusted Publisher > GitHub Actions:
+# npmjs.com — needed SEPARATELY for `@spacedevin/deck`, `@spacedevin/deck-synths` AND
+# `@spacedevin/deck-player`, since trusted publishers are per package. Settings > Trusted Publisher > GitHub Actions:
 #   Organization or user: spacedevin
 #   Repository:           deck
 #   Workflow filename:    npm-release.yml
 #   Environment:          (leave blank)
 # Requires npm >= 11.5.1 (upgraded below) and the id-token: write permission.
 #
-# Both packages ship from one release at one version. The player is published second because its
-# dependency is pinned to that exact version.
+# All three packages ship from one release at one version, published in dependency order —
+# language, then synths, then player — because each one's dependency is pinned to that exact version.
 
 name: NPM release
 
@@ -87,6 +87,24 @@ jobs:
           fi
           curl -sL -H "Authorization: Bearer $GITHUB_TOKEN" -H "Accept: application/octet-stream" "$DECK_URL" -o spacedevin-deck-npm-package.tgz
 
+          # The synths catalog ships in lockstep from the same release. Same retry loop, same reason,
+          # and the same tolerance: a release predating the package has no such asset, so its absence
+          # is not fatal.
+          for attempt in 1 2 3 4 5; do
+            SYNTHS_URL=$(curl -sL -H "Authorization: Bearer $GITHUB_TOKEN" \
+              -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/${{ github.repository }}/releases/${{ steps.rel.outputs.id }}/assets?per_page=100" \
+              | jq -r '.[] | select(.name == "spacedevin-deck-synths-npm-package.tgz" and .state == "uploaded") | .url')
+            [ -n "$SYNTHS_URL" ] && [ "$SYNTHS_URL" != "null" ] && break
+            echo "synths tarball not uploaded yet (attempt $attempt/5) — waiting 30s"
+            sleep 30
+          done
+          if [ -n "$SYNTHS_URL" ] && [ "$SYNTHS_URL" != "null" ]; then
+            curl -sL -H "Authorization: Bearer $GITHUB_TOKEN" -H "Accept: application/octet-stream" "$SYNTHS_URL" -o spacedevin-deck-synths-npm-package.tgz
+          else
+            echo "No spacedevin-deck-synths-npm-package.tgz on this release — skipping the synths publish."
+          fi
+
           # The player ships in lockstep from the same release. Same retry loop, same reason. A
           # release predating the player has no such asset, so its absence is not fatal — it just
           # means there is nothing to publish.
@@ -119,6 +137,16 @@ jobs:
 
       - name: Publish @spacedevin/deck to npm
         run: npm publish spacedevin-deck-npm-package.tgz --access public
+
+      # After the language, for the same reason: the synths package's dependency was pinned to this
+      # exact version at pack time, so it is uninstallable until the language is on the registry.
+      - name: Publish @spacedevin/deck-synths to npm
+        run: |
+          if [ -f spacedevin-deck-synths-npm-package.tgz ]; then
+            npm publish spacedevin-deck-synths-npm-package.tgz --access public
+          else
+            echo "No synths tarball — nothing to publish."
+          fi
 
       # Second, and only after the language package is live: the player's dependency was pinned to
       # this exact version at pack time, so publishing it first would put an uninstallable package on
