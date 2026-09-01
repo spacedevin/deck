@@ -9,7 +9,7 @@
 // against tish-gba's build-time bake (crates/tish-gba-scenepack/src/deckpack.rs), which is the
 // canonical list for the two chip synths.
 
-import { parseProgram, parseTrackBody, barSelectorMatches, snakeToCamel } from '@spacedevin/deck'
+import { parseProgram, parseTrackBody, barSelectorMatches, snakeToCamel, parseGenBlock } from '@spacedevin/deck'
 import { defaultParamsForGeneratorId, isPortedGeneratorId, knownUnportedGeneratorIds } from '../generators/Registry.tish'
 import { bootDeckRegistries } from './DeckIds.tish'
 
@@ -573,7 +573,23 @@ fn applyTrack(track, index, errors, substitutions, waveTables) {
   }
 
   if (track.genBlocks && track.genBlocks.length > 0) {
-    ch.generatorSpec = track.genBlocks[track.genBlocks.length - 1]
+    let spec = track.genBlocks[track.genBlocks.length - 1]
+    // Run the block through the language's dialect dispatch instead of storing it raw. A host that
+    // registers a `gen_block` dialect (`registerGenBlockDialect`, e.g. matrix_fm or patch) gets the
+    // parsed result here; a host that registers none gets the same shape it always did, plus the
+    // `kind`/`version` the language reports. Storing the raw block meant a registered dialect was
+    // never consulted, so a voice needing the parsed graph fell back to a default tone and played
+    // something that was not the patch in the file.
+    let parsed = parseGenBlock(spec.generatorId, spec.lines)
+    if (parsed) {
+      spec.kind = parsed.kind
+      spec.tplHeaderId = parsed.tplHeaderId
+      spec.version = parsed.version
+      if (parsed.graph !== null && parsed.graph !== undefined) {
+        spec.graph = parsed.graph
+      }
+    }
+    ch.generatorSpec = spec
   }
 
   return ch
