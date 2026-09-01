@@ -77,6 +77,7 @@ function highlightDeckLine (line, deck) {
 
   const info = deck.classifyLine(code)
   const stepIdx = new Set(info.stepIndices ?? [])
+  let stepNo = 0
 
   // Walk runs of whitespace and non-whitespace so the original spacing survives verbatim. Collected
   // first because classifying a `key value` pair needs to see the NEXT token.
@@ -109,6 +110,8 @@ function highlightDeckLine (line, deck) {
     const prev = tokens[at - 1]?.tok
     const first = part.index === 0
     let cls = null
+    // Position within the lane, so a player can light the step under the playhead.
+    let attr = ''
 
     if (isPlaceholder(tok)) {
       // Grammar notation — `note <midi> <startBeat>` — a slot, not a value.
@@ -119,6 +122,7 @@ function highlightDeckLine (line, deck) {
       cls = 'dk-kw'
     } else if (info.kind === 'steps' && stepIdx.has(part.index)) {
       cls = 'dk-step'
+      attr = ` data-step="${stepNo++}"`
     } else if (deck.isInlineKeyword(tok)) {
       cls = 'dk-inline'
     } else if (deck.isNumberToken(tok)) {
@@ -141,7 +145,7 @@ function highlightDeckLine (line, deck) {
       cls = 'dk-param'
     }
 
-    out += cls ? `<span class="${cls}">${escapeHtml(tok)}</span>` : escapeHtml(tok)
+    out += cls ? `<span class="${cls}"${attr}>${escapeHtml(tok)}</span>` : escapeHtml(tok)
   }
 
   if (comment) out += `<span class="dk-comment">${escapeHtml(comment)}</span>`
@@ -149,7 +153,19 @@ function highlightDeckLine (line, deck) {
 }
 
 export function highlightDeck (src, deck) {
-  return src.split('\n').map((line) => highlightDeckLine(line, deck)).join('\n')
+  // Each line is tagged with the track it belongs to — a `track` header opens a new one and the
+  // indented lines under it inherit the number. The index counts `track` headers in source order,
+  // which is the order parseSong builds channels in, so a player can map a trigger's bus straight
+  // back to the lines that describe it and light them as they sound.
+  let track = -1
+  return src
+    .split('\n')
+    .map((line) => {
+      if (/^\s*track\s/.test(line)) track += 1
+      const inner = highlightDeckLine(line, deck)
+      return track >= 0 ? `<span class="dk-line" data-track="${track}">${inner}</span>` : inner
+    })
+    .join('\n')
 }
 
 // ── entry point ───────────────────────────────────────────────────────────────
