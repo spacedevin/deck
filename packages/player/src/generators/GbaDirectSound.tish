@@ -68,9 +68,15 @@ fn getGbaBuffer(ctx, shape, duty) {
     } else if (shape === "triangle") {
       v = phase < 0.5 ? (phase * 4.0 - 1.0) : (3.0 - phase * 4.0)
     } else if (shape === "square") {
+      // `square` names a 50% wave, so it ignores `duty` on purpose — on both sides.
       v = phase < 0.5 ? 1.0 : -1.0
-    } else {
+    } else if (shape === "sine") {
       v = Math.sin(phase * Math.PI * 2)
+    } else {
+      // An unrecognised name is a pulse, not a sine. `pulse` is already the default for an absent
+      // `waveform`, and the GBA bake's catch-all arm is a pulse too (deckpack.rs `pcm_table`), so a
+      // sine here meant `waveform bogus` sounded one way in the browser and another in the ROM.
+      v = phase < dThresh ? 1.0 : -1.0
     }
     data[i] = v
     i = i + 1
