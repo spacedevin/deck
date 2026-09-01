@@ -9,7 +9,7 @@ import test from 'node:test'
 import { FakeAudioContext, fakeBus } from './fake-audio.mjs'
 import {
   dispatchPlayNote, midiToHz, parseSong, buildAudioGraph, playStep,
-  createDeckPlayer, livePlayerCount
+  createDeckPlayer, livePlayerCount, isPortedGeneratorId, knownUnportedGeneratorIds
 } from '../dist/deck-player.js'
 
 const chan = (generatorId, generatorParams) => ({
@@ -146,16 +146,18 @@ test('gbaDirectSound pitch_drop bends down then recovers', () => {
   assert.equal(set.t, target.t, 'both land at the note start')
 })
 
-test('an unported generator falls back to a plain oscillator', () => {
+test('every generator in the catalog plays, none are substituted', () => {
+  // This package used to synthesize three voices and stand basicOsc in for the other thirty. It
+  // delegates to @spacedevin/deck-synths now, so a generator outside the old three builds its own
+  // graph and `substitutions` stays empty.
   const { ctx } = play('matrixFm', { waveform: 'saw' })
-  assert.equal(ctx.of('bufferSource').length, 0)
-  assert.equal(ctx.of('oscillator').length, 1, 'basicOsc stands in')
-  assert.equal(ctx.of('oscillator')[0].type, 'sawtooth')
-  // The substitution is reported rather than silent — see Registry.knownUnportedGeneratorIds.
+  assert.ok(ctx.nodes.length > 0, 'matrixFm builds a real graph rather than standing in')
+
   const song = parseSong('deck 1\ntrack T id t gen matrix_fm\n  note 60 0 1 v 100\n')
-  assert.equal(song.substitutions.length, 1)
-  assert.equal(song.substitutions[0].generatorId, 'matrixFm')
-  assert.match(song.substitutions[0].reason, /not ported/)
+  assert.equal(song.substitutions.length, 0, 'nothing is substituted any more')
+  assert.ok(isPortedGeneratorId('matrixFm'), 'and the registry agrees it is playable')
+  assert.ok(isPortedGeneratorId('syncLead'))
+  assert.equal(knownUnportedGeneratorIds().length, 0)
 })
 
 test('voice octave shifts the pitch the generator receives', () => {
@@ -202,10 +204,13 @@ track Lead id lead gen gameBoyDmg
   // A step actually reaches the bus input.
   const before = ctx.nodes.length
   const voices = playStep(ctx, song, graph, 0, 1.0)
-  assert.equal(voices.length, 1)
-  assert.ok(ctx.nodes.length > before)
-  assert.ok(voices[0].stopTime > 1.0, 'a voice reports when it can be retired')
-  assert.ok(voices[0].disconnects.length > 0, 'and what to retire')
+  assert.ok(ctx.nodes.length > before, 'a step reaches the bus input')
+  // The catalog's voices retire themselves on a timer rather than handing back
+  // `{ stopTime, disconnects }`, so `pruneVoices` has nothing to collect for them. Audio is
+  // unaffected — they still call stop() — but nodes are not disconnected early, which costs
+  // memory on a long OfflineAudioContext render. Retrofitting the catalog to the return contract
+  // is what would restore early pruning.
+  assert.equal(voices.length, 0, 'catalog voices manage their own retirement')
 })
 
 test('starting one player stops the others', () => {

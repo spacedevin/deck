@@ -10,7 +10,8 @@
 // actor mixer lanes. What is left is the per-channel strip and the master chain — the parts that
 // exist to make a song sound right rather than to run a live set.
 
-import { dispatchPlayNote } from '../generators/Dispatch.tish'
+import { dispatchPlayNote } from '@spacedevin/deck-synths'
+import { ensureSyncWorklet } from '@spacedevin/deck-synths'
 
 fn makeDriveCurve(ctx, amount) {
   let k = amount * 120
@@ -169,6 +170,11 @@ export fn buildChannelBus(ctx, ch, masterSum, reverbIn) {
  * difference between hearing a song and rendering it is which node the master chain lands on.
  */
 export fn buildAudioGraph(ctx, song, opts) {
+  // Start registering the sync processor as early as possible. Sync voices fall back to a plain
+  // oscillator when it is missing, and registration is async, so kicking it off at graph-build time
+  // gives it the whole of the user's press-to-first-note latency to land. Idempotent per context.
+  ensureSyncWorklet(ctx)
+
   let o = opts ? opts : {}
   let masterGainValue = (o.gain !== null && o.gain !== undefined) ? o.gain : 0.9
   let withReverb = o.reverb !== false

@@ -1,28 +1,30 @@
 // What this package can play, and what each generator's parameters default to.
 //
-// The tiers here mirror the port state documented in AGENTS.md. `PORTED` is the honest list; anything
-// else is substituted with `basicOsc` and reported by `unsupportedGenerators()` rather than silently
-// producing the wrong sound.
+// Both answers come from @spacedevin/deck-synths now. This package used to carry its own three
+// voices and a hand-maintained list of the thirty it did not implement; the catalog is a package,
+// so the list is derived from it.
+//
+// Nothing here re-exports a name the catalog also exports. `tish build` inlines each module and
+// emits one top-level binding per exported name, so two modules exporting `defaultParamsForGeneratorId`
+// becomes a duplicate declaration in the bundle. Callers get those straight from the catalog.
 
-import { defaultParamsForGameBoyDmg } from './GameBoyDmg.tish'
-import { defaultParamsForGbaDirectSound } from './GbaDirectSound.tish'
-import { defaultParamsForBasicOsc } from './BasicOsc.tish'
+import { generatorCatalog } from '@spacedevin/deck-synths'
 
-/// Generator ids this package synthesizes faithfully.
+/// Generator ids this package synthesizes: everything in the catalog.
 export fn portedGeneratorIds() {
-  return ["gameBoyDmg", "gbaDirectSound", "basicOsc"]
+  let cat = generatorCatalog()
+  let out = []
+  let i = 0
+  while (i < cat.length) {
+    out.push(cat[i].id)
+    i = i + 1
+  }
+  return out
 }
 
-/// Generator ids that exist in the wider `.deck` ecosystem but are not ported here yet. Kept explicit
-/// so `unsupportedGenerators()` can say "known but not ported" rather than "unknown id".
+/// Nothing is unported any more. Kept so callers that ask do not have to change.
 export fn knownUnportedGeneratorIds() {
-  return [
-    "chiptune", "nes2a03", "c64sid", "ym2612", "sn76489", "spc700",
-    "noiseBurst", "fmTone", "matrixFm", "patch", "pad", "bell", "drumSynth",
-    "guitar", "clap", "arco", "tine", "aether", "halo", "acid303", "sub808",
-    "cymbal", "reeseBass", "syncLead", "syncChoir", "obSync", "laserSync",
-    "formantVocal", "ttsVocal", "meSpeakVocal"
-  ]
+  return []
 }
 
 export fn isPortedGeneratorId(id) {
@@ -35,15 +37,4 @@ export fn isPortedGeneratorId(id) {
     i = i + 1
   }
   return false
-}
-
-/// Default `gen` params for a generator id. Unknown ids get the fallback voice's defaults.
-export fn defaultParamsForGeneratorId(id) {
-  if (id === "gameBoyDmg") {
-    return defaultParamsForGameBoyDmg()
-  }
-  if (id === "gbaDirectSound") {
-    return defaultParamsForGbaDirectSound()
-  }
-  return defaultParamsForBasicOsc()
 }

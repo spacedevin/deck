@@ -10,7 +10,8 @@
 // canonical list for the two chip synths.
 
 import { parseProgram, parseTrackBody, barSelectorMatches, snakeToCamel, parseGenBlock } from '@spacedevin/deck'
-import { defaultParamsForGeneratorId, isPortedGeneratorId, knownUnportedGeneratorIds } from '../generators/Registry.tish'
+import { isPortedGeneratorId, knownUnportedGeneratorIds } from '../generators/Registry.tish'
+import { defaultParamsForGeneratorId } from '@spacedevin/deck-synths'
 import { bootDeckRegistries } from './DeckIds.tish'
 
 // ── clamps ────────────────────────────────────────────────────────────────────

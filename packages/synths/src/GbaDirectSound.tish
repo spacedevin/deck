@@ -57,12 +57,17 @@ fn getGbaBuffer(ctx, shape, duty) {
     let v = 0
     if (shape === "pulse") {
       v = phase < dThresh ? 1.0 : -1.0
-    } else if (shape === "sawtooth") {
+    } else if (shape === "sawtooth" || shape === "saw") {
       v = (phase * 2.0) - 1.0
     } else if (shape === "triangle") {
       v = phase < 0.5 ? (phase * 4.0 - 1.0) : (3.0 - phase * 4.0)
-    } else {
+    } else if (shape === "square") {
+      v = phase < 0.5 ? 1.0 : -1.0
+    } else if (shape === "sine") {
       v = Math.sin(phase * Math.PI * 2)
+    } else {
+      // Unrecognised names are a pulse, matching the GBA bake's catch-all arm.
+      v = phase < dThresh ? 1.0 : -1.0
     }
     data[i] = v
     i = i + 1
@@ -77,7 +82,7 @@ export fn playGbaDirectSound(ctx, bus, t, midi, vel, durSec, ch, bendSemis) {
   if (!gp) gp = {}
   
   let waveform = gp.waveform ? gp.waveform : "pulse"
-  let duty = gp.duty ? String(gp.duty) : "50"
+  let duty = normalizeDuty(gp.duty)
   let vol = (gp.vol !== null) ? Math.round(gp.vol) : 15
   let attack = (gp.attack !== null) ? gp.attack : 0
   let decay = (gp.decay !== null) ? gp.decay : 2

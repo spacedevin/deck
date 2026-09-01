@@ -87,6 +87,14 @@ class FakePanner extends FakeNode {
   constructor (ctx) { super(ctx, 'panner'); this.pan = new FakeParam(this, 'pan', 0) }
 }
 
+class FakeDelay extends FakeNode {
+  constructor (ctx, max = 1) {
+    super(ctx, 'delay')
+    this.maxDelayTime = max
+    this.delayTime = new FakeParam(this, 'delayTime', 0)
+  }
+}
+
 class FakeConvolver extends FakeNode {
   constructor (ctx) { super(ctx, 'convolver'); this.buffer = null }
 }
@@ -133,6 +141,7 @@ export class FakeAudioContext {
   createBiquadFilter () { return new FakeBiquad(this) }
   createWaveShaper () { return new FakeWaveShaper(this) }
   createStereoPanner () { return new FakePanner(this) }
+  createDelay (max = 1) { return new FakeDelay(this, max) }
   createConvolver () { return new FakeConvolver(this) }
   createDynamicsCompressor () { return new FakeCompressor(this) }
   createAnalyser () { return new FakeAnalyser(this) }

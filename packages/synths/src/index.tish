@@ -39,6 +39,7 @@ import {
   syncMatrixFmSpecFromGraph
 } from './MatrixFmGraph.tish'
 import { ensureSyncWorklet, syncWorkletSource } from './SyncWorklet.tish'
+import { normalizeDuty } from './Duty.tish'
 // The patch expression evaluator. It runs for every `patch` env value at play time, which the
 // structural graph tests never exercise, so it wants direct coverage — and a consumer cannot reach
 // it through the package boundary unless it is exported.
@@ -69,4 +70,5 @@ export {
   syncMatrixFmSpecFromGraph
 }
 export { ensureSyncWorklet, syncWorkletSource }
+export { normalizeDuty }
 export { resolveExpr }
