@@ -6,16 +6,18 @@ Language-only package for the **`.deck`** patch language.
 
 ## Repo layout
 
-This repo publishes **two** packages. The rules below are this one's.
+This repo publishes **three** packages. The rules below are this one's.
 
 | Path | Package | What |
 |------|---------|------|
 | `/` (this file) | `@spacedevin/deck` | the language: tokenize, parse, registries, highlight |
-| `packages/player/` | `@spacedevin/deck-player` | the host: Web Audio playback, transport, `<deck-player>` |
+| `packages/synths/` | `@spacedevin/deck-synths` | the instrument catalog: 33 Web Audio voices + dispatch |
+| `packages/player/` | `@spacedevin/deck-player` | the host: Song IR, transport, `<deck-player>`, offline render |
 
 The "out of scope" list below — **including audio** — is about `@spacedevin/deck`. `src/` stays
-audio-free; everything that list excludes lives in `packages/player/`, which has its own
-[AGENTS.md](packages/player/AGENTS.md). The player depends on this package and never the reverse.
+audio-free; everything that list excludes lives in `packages/synths/` and `packages/player/`, each
+with its own AGENTS.md ([synths](packages/synths/AGENTS.md), [player](packages/player/AGENTS.md)).
+Dependencies point one way: player → synths → deck, never the reverse.
 
 ## In scope
 
@@ -52,7 +54,8 @@ audio-free; everything that list excludes lives in `packages/player/`, which has
 `site/build.mjs` renders the markdown **already in this repo** to
 [spacedevin.github.io/deck](https://spacedevin.github.io/deck/) on every push to `main`.
 
-Adding a page means **adding a `.md` file** under `docs/` or `packages/player/` — there is no route,
+Adding a page means **adding a `.md` file** under `docs/`, `packages/player/` or `packages/synths/`
+— there is no route,
 nav entry, or registration to update. The title comes from `title:` frontmatter, else a per-section
 override in `site/build.mjs`, else the first `#` heading, else the filename; `description:` becomes
 the lede.
@@ -88,10 +91,14 @@ Sources are read **in place**. `docs/*.md` are package exports and ship in the t
 | [README.md](README.md) | Install + API map |
 | [docs/DECK_GRAMMAR.md](docs/DECK_GRAMMAR.md) | **Canonical** language reference |
 | [docs/AST.md](docs/AST.md) | What `parseProgram` / `parseTrackBody` return |
-| [docs/EXAMPLES.md](docs/EXAMPLES.md) | Complete runnable songs |
+| [docs/EXAMPLES.md](docs/EXAMPLES.md) | Complete runnable songs, one per voice |
+| [docs/RENDERING.md](docs/RENDERING.md) | The WAV CLI and `renderDeckToBuffer()` |
 | [docs/DECK_EXTENSION.md](docs/DECK_EXTENSION.md) | gen_block dialect registration + common dialects |
 | [docs/HOST.md](docs/HOST.md) | How a host boots registries |
 | [examples/](examples/) | Runnable parse / boot / helper demos |
+| [packages/synths/README.md](packages/synths/README.md) | The voice catalog and its contract |
+| [packages/player/README.md](packages/player/README.md) | Playback API and `<deck-player>` |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Dev setup, conventions, how-to recipes |
 
 Host apps (e.g. Deckard) may document UI, apply clamps, ownership, and their generator id tables — not a second copy of the language.
 

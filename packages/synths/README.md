@@ -33,6 +33,23 @@ play<Name>(ctx, bus, t, midi, vel, durSec, ch, bendSemis)
 `dispatchPlayNote` picks one by `ch.generatorId`; an unknown id falls back to `basicOsc`. Patch and
 envelope come from `ch.generatorParams` — the ADSR lives there, not on the channel root.
 
+## The voices
+
+Every id below has a complete, playable song in [Examples](../../docs/EXAMPLES.md).
+
+| Family | Generator ids |
+|---|---|
+| Chip emulations | `gameBoyDmg` `gbaDirectSound` `nes2a03` `c64sid` `ym2612` `sn76489` `spc700` `chiptune` |
+| FM and patches | `fmTone` `matrixFm` `patch` `tine` `bell` |
+| Basic and bass | `basicOsc` `acid303` `sub808` `reeseBass` `pad` |
+| Drums and hits | `drumSynth` `noiseBurst` `clap` `cymbal` |
+| Hard sync | `syncLead` `syncChoir` `obSync` `laserSync` |
+| Bowed, plucked, struck | `arco` `guitar` `halo` `aether` |
+| Vocal | `formantVocal` `ttsVocal` `meSpeakVocal` |
+
+`generatorCatalog()` returns the same list with a label and description per voice, and the default
+`generatorParams` each one expects.
+
 ## Assets
 
 `ensureSyncWorklet` registers the hard-sync oscillator from an inlined Blob URL, so `syncLead`,
@@ -41,6 +58,14 @@ envelope come from `ch.generatorParams` — the ADSR lives there, not on the cha
 `meSpeakVocal` is the exception: it needs a worker and voice data the host serves. The defaults are
 `/mespeak-worker.js` and `/mespeak`; call `configureMeSpeak({ workerUrl, assetsBaseUrl })` if yours
 differ. `ttsVocal` needs the Web Speech API.
+
+## Adding a voice
+
+One `.tish` file in `src/` exporting a `play<Name>` function with the signature above, an entry in
+`src/Registry.tish` (id, label, description, default params) and `src/Dispatch.tish`, any param
+aliases or gen_block dialect in `src/DeckIds.tish`, and a song in
+[docs/EXAMPLES.md](../../docs/EXAMPLES.md) so the example test plays it. The full recipe is in
+[CONTRIBUTING.md](../../CONTRIBUTING.md).
 
 ## Known limits
 

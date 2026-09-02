@@ -76,8 +76,30 @@ const SECTIONS = [
     // so frontmatter would show up as a stray rule and a giant "description:" heading on npmjs.com.
     titles: { 'README.md': 'Playback', 'AGENTS.md': 'Player scope' },
     descriptions: {
-      'README.md': 'Web Audio playback for .deck — chip-tune synths, a transport, and an element.',
+      'README.md': 'Web Audio playback for .deck — the full voice catalog, a transport, and an element.',
       'AGENTS.md': 'What belongs in the playback package, and what has to stay upstream.',
+    },
+  },
+  {
+    label: 'Synths',
+    dir: 'packages/synths',
+    slug: 'synths',
+    order: ['README.md', 'AGENTS.md'],
+    ignore: ['node_modules', 'dist', 'test'],
+    titles: { 'README.md': 'Synths', 'AGENTS.md': 'Synths scope' },
+    descriptions: {
+      'README.md': 'The 33-voice instrument catalog — chip emulations, FM, drums, sync, bowed and plucked models, vocals.',
+      'AGENTS.md': 'What belongs in the catalog package: voices and dispatch, never grammar or transport.',
+    },
+  },
+  {
+    label: 'Contributing',
+    dir: '.',
+    slug: '',
+    only: ['CONTRIBUTING.md'],
+    titles: { 'CONTRIBUTING.md': 'Contributing' },
+    descriptions: {
+      'CONTRIBUTING.md': 'Dev setup, tests, commit conventions, and how to add a voice, a grammar case, or a doc page.',
     },
   },
 ]
@@ -385,8 +407,10 @@ function writeLlms (pages) {
   const index = [
     `# ${SITE.title}`,
     '',
-    `> ${SITE.tagline}. Two packages: \`@spacedevin/deck\` parses the language, ` +
-      '`@spacedevin/deck-player` plays it through Web Audio.',
+    `> ${SITE.tagline}. Three packages: \`@spacedevin/deck\` parses the language, ` +
+      '`@spacedevin/deck-synths` is the 33-voice instrument catalog, and `@spacedevin/deck-player` ' +
+      'sequences a song through those voices with Web Audio — in a page via `<deck-player>`, or ' +
+      'offline to a WAV from the command line.',
     '',
     'Line-oriented, streamable patch text. Times are in quarter-note beats; one bar = 4 beats = 16',
     'sixteenth steps. The parser is deliberately parse-only — absent optionals stay `null` and no',

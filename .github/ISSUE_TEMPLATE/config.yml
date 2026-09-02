@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Docs
+    url: https://spacedevin.github.io/deck/
+    about: The grammar, playable examples, rendering, and host integration.
+  - name: Discussions
+    url: https://github.com/spacedevin/deck/discussions
+    about: Questions, songs you made, ideas that aren't a bug or a feature yet.
