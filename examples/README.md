@@ -1,6 +1,10 @@
 # Examples
 
-Runnable `.tish` demos for `@spacedevin/deck`. From the package root:
+Runnable `.tish` demos of the `@spacedevin/deck` **API** — parsing, host boot, helpers. Looking for
+`.deck` **songs** instead? Those are in [docs/EXAMPLES.md](../docs/EXAMPLES.md), one per voice, each
+playable on the site.
+
+From the package root:
 
 ```bash
 npm run examples

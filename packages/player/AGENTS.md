@@ -42,16 +42,14 @@ lockstep with the language and this package. All 33 voices live there, including
 (`play*(ctx, bus, t, midi, vel, durSec, ch, bendSemis)`) that connects its last node to `bus.input`.
 Add a voice there, not here.
 
-This package still carries its own `gameBoyDmg`, `gbaDirectSound` and `basicOsc` under
-`src/generators/`, and that is the remaining duplication to remove. They are not interchangeable
-with the catalog's copies yet, for one load-bearing reason: **these return
-`{ stopTime, disconnects }` and let the caller prune, while the catalog's voices self-clean with a
-wall-clock `setTimeout`.** The return contract is what makes `renderDeckToBuffer` and the Node tests
-work at all — a timer has no meaning inside an `OfflineAudioContext`. Consolidating means retrofitting
-all 33 to the return contract first, and moving the timer policy to the host's call site.
+Voices clean up after themselves: each schedules its own disconnects once its tail has passed. A
+voice may instead return `{ stopTime, disconnects }` and let this package prune it per step
+(`pruneVoices` in `src/index.tish`); that path exists for voices that must not lean on a wall-clock
+timer, since an `OfflineAudioContext` has none. `src/generators/` here holds only `Registry.tish`;
+there are no local voice copies left.
 
-A generator id this package has no voice for falls back to `basicOsc` so a song still plays, and is
-reported in `song.substitutions`.
+The catalog falls back to `basicOsc` for a generator id it has no voice for, so a song still plays.
+This package surfaces that in `song.substitutions`.
 
 `ttsVocal` and `meSpeakVocal` need the Web Speech API and a `mespeak` worker respectively, so they
 stay out of scope here regardless.
