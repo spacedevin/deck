@@ -2,7 +2,7 @@
   "name": "@spacedevin/deck-player",
   "version": "0.1.0",
   "type": "module",
-  "description": "Web Audio player for the .deck language \u2014 chip-tune synths, transport, and a <deck-player> element",
+  "description": "Web Audio player for the .deck language — the full deck-synths voice catalog, a lookahead transport, offline render, and a <deck-player> element",
   "license": "MIT",
   "author": "spacedevin",
   "repository": {
@@ -74,5 +74,9 @@
   "devDependencies": {
     "@spacedevin/deck": "file:../..",
     "@spacedevin/deck-synths": "file:../synths"
+  },
+  "homepage": "https://spacedevin.github.io/deck/player/",
+  "bugs": {
+    "url": "https://github.com/spacedevin/deck/issues"
   }
 }

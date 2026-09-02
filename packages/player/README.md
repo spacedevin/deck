@@ -3,14 +3,17 @@
 Web Audio playback for **`.deck`** — chip-tune synths, a lookahead transport, and a `<deck-player>`
 element.
 
-[`@spacedevin/deck`](../..) parses the language. This package is the **host**: it applies the
-defaults and clamps the parser deliberately leaves out, and it makes sound.
+[`@spacedevin/deck`](../..) parses the language and [`@spacedevin/deck-synths`](../synths/) holds
+the voices. This package is the **host**: it applies the defaults and clamps the parser deliberately
+leaves out, sequences the song, and makes sound through the full 33-voice catalog.
 
 ## Install
 
 ```bash
 npm install @spacedevin/deck-player
 ```
+
+`@spacedevin/deck` and `@spacedevin/deck-synths` are peer dependencies and install alongside it.
 
 ## Use
 
@@ -47,6 +50,15 @@ track Lead id lead gen gameBoyDmg
 
 <deck-player src="/music/theme.deck"></deck-player>
 ```
+
+### Code lighting
+
+If the source inside the element is highlighted HTML rather than plain text, the element will light
+it as it plays: the step under the playhead in each `steps` lane, and every line of a track that is
+sounding on that step. It looks for the attributes the site highlighter emits — `data-track` on each
+line and `data-step` on each step token — so any highlighter that adds those gets the same
+behaviour. The docs site is the reference: `site/highlight.mjs` emits them, `site/style.css` styles
+the `dk-now` (lit step) and `dk-live` (sounding line) classes it toggles.
 
 ## Hear it
 
@@ -95,28 +107,32 @@ track Kick id kick gen gbaDirectSound
 `load()` returns the Song, including three things worth showing a user:
 
 - **`errors`** — parse errors plus host errors (a malformed `gen` line, a bad `wave` table)
-- **`substitutions`** — generators that were swapped for `basicOsc` (see below)
+- **`substitutions`** — generator ids the catalog has no voice for, swapped for `basicOsc` so the song still plays
 - **`ignored`** — language features present in the source that this package doesn't sequence yet:
   clips/session, `song`/`follow` arrangement, `auto` automation, `master_mix`, `@` directives
 
 ## Sound
 
-The synths are a source-level port of [Deckard](https://deckard.lol)'s, which are themselves checked
-against tish-gba's build-time bake — so a `.deck` sounds the same in a browser as it does on a GBA.
-That means real hardware behaviour, not an impression of it:
+The voices are [`@spacedevin/deck-synths`](../synths/) — all 33 of them, the same catalog
+[Deckard](https://deckard.lol) plays through, which is itself checked against tish-gba's build-time
+bake. So a `.deck` sounds the same here as it does in Deckard or on a GBA, and nothing is swapped for
+a stand-in. The chip voices model real hardware behaviour, not an impression of it:
 
 - **`gameBoyDmg`** — the four duty tables in an 8-sample buffer pitched by `playbackRate`; a genuine
   15/7-bit LFSR for noise; wave RAM quantized to 4 bits; the 64 Hz / 32 Hz frequency floors; the
   15-step volume envelope
 - **`gbaDirectSound`** — a 32-sample table (so high notes alias like the real software mixer), an
   8-bit DAC as a 256-step staircase, and the ~16 kHz mixing roll-off
+- **`nes2a03`, `c64sid`, `ym2612`, `sn76489`, `spc700`** — and the rest of the chip family, plus
+  FM, drums, hard sync, bowed and plucked models. The full list is in the
+  [synths README](../synths/README.md); [Examples](../../docs/EXAMPLES.md) has a playable song for each
 - **`wave <name> <32 hex digits>`** / **`wave <name> harmonics <a1> …`** — named wave RAM tables,
   written as samples or as harmonic amplitudes; the language resolves both to the same 32 levels
 - **`layer`** — stem gating via `setIntensity()`
 
-Everything else — `matrixFm`, `patch`, `nes2a03`, `c64sid`, and the rest — falls back to a plain
-oscillator so a song still plays, and says so in `song.substitutions`. `ttsVocal` / `meSpeakVocal`
-are out of scope: they need the Web Speech API.
+Two voices reach outside the audio graph: `ttsVocal` needs the Web Speech API and `meSpeakVocal`
+needs a worker the host serves. They play in a page that provides those and are silent in an
+offline render.
 
 ## Notes
 

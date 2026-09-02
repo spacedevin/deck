@@ -2,7 +2,7 @@
   "name": "@spacedevin/deck",
   "version": "0.1.0",
   "type": "module",
-  "description": ".deck language only — tokenize, parse, format, registries, highlight classify",
+  "description": ".deck music language — tokenize, parse, format, registries and highlight classification. One Tish source, three targets (Tish, JS, Rust)",
   "license": "MIT",
   "author": "spacedevin",
   "repository": {
@@ -37,6 +37,7 @@
     "./examples": "./docs/EXAMPLES.md",
     "./extension": "./docs/DECK_EXTENSION.md",
     "./host": "./docs/HOST.md",
+    "./rendering": "./docs/RENDERING.md",
     "./package.json": "./package.json"
   },
   "files": [
@@ -48,6 +49,7 @@
     "conformance/",
     "README.md",
     "AGENTS.md",
+    "CONTRIBUTING.md",
     "LICENSE"
   ],
   "scripts": {
@@ -86,7 +88,13 @@
     "tish",
     "parser",
     "patch-language",
-    "live-coding"
+    "live-coding",
+    "music",
+    "chiptune",
+    "web-audio",
+    "gameboy",
+    "gba",
+    "tracker"
   ],
   "peerDependencies": {
     "@tishlang/tish": ">=3.2.2"
@@ -96,5 +104,9 @@
     "c8": "^10.1.3",
     "highlight.js": "^11.11.1",
     "marked": "^15.0.12"
+  },
+  "homepage": "https://spacedevin.github.io/deck/",
+  "bugs": {
+    "url": "https://github.com/spacedevin/deck/issues"
   }
 }
